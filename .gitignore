@@ -1,0 +1,9 @@
+# data files and db are too large for github
+data/*
+db/*
+
+# python env
+.env/
+
+# vscode
+.vscode/
