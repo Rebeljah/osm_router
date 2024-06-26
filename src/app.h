@@ -260,7 +260,7 @@ public:
         }
     }
 
-    void update(double deltaTime)
+    void update(float deltaTime)
     {
         double delta = panVelocity * deltaTime;
 
@@ -333,6 +333,7 @@ public:
 
 private:
     sf::RenderWindow window;
+    sf::Clock clock;
     MapSprite mapSprite;
 
     toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
@@ -373,6 +374,8 @@ private:
 
     void update()
     {
+        float deltaTime = clock.restart().asSeconds();
+        mapSprite.update(deltaTime);
     }
 
     void render()
