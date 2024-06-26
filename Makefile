@@ -9,9 +9,3 @@ create_db:
 
 fill_db:  # fill the database with node/edge data from the CSV's defined in the populate_db.py file
 	python ./dev/scripts/populate_db.py
-
-build:
-	g++ -g -std=c++14 ./src/*.cpp -o ./dist/app.out -lsfml-graphics -lsfml-window -lsfml-system -lsqlite3
-
-run:
-	./dist/app.out
