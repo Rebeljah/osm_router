@@ -8,7 +8,7 @@ using std::string;
 using std::vector;
 using std::unordered_map;
 using std::unordered_set;
-using std::ostringstream;
+using std::stringstream;
 
 #include <SFML/Graphics.hpp>
 #include <tomlplusplus/toml.hpp>
@@ -21,6 +21,18 @@ typedef double Pixels;
 typedef double Meters;
 typedef int NodeID;
 typedef int ChunkID;
+
+// https://gist.github.com/tcmug/9712f9192571c5fe65c362e6e86266f8
+vector<string> splitString(string s, string delim) {
+    vector<string> result;
+    size_t from = 0, to = 0;
+    while (string::npos != (to = s.find(delim, from))) {
+        result.push_back(s.substr(from, to - from));
+        from = to + delim.length();
+    }
+    result.push_back(s.substr(from, to));
+    return result;
+}
 
 Meters degreesToMeters(Degrees x)
 {
@@ -65,7 +77,7 @@ Convert a geo rect in decimal degrees to a pixel rect given a conversion ratio.
 @param r: input rect
 @param pd: ratio of pixels per degree
 */
-DisplayRect geoToDisplayRect(GeoRect r, double pd)
+DisplayRect geoRectToDisplayRect(GeoRect r, double pd)
 {
     auto f = [pd](Pixels x){ return degreesToPixels(x, pd);};
     return DisplayRect(f(r.top), f(r.left), f(r.width), f(r.height));
@@ -94,15 +106,40 @@ struct GeoRect : public sf::Rect<Degrees>
     GeoRect() : sf::Rect<Degrees>(0,0,0,0) {}
 };
 
+struct PointPath
+{
+    vector<sf::Vector2<double>> points;
+
+    PointPath(string wktLinestring)
+    {
+        for (auto part : splitString(wktLinestring, ", "))
+        {
+            auto lonLat = splitString(part, " ");
+            auto lon = stod(lonLat.at(0));
+            auto lat = stod(lonLat.at(1));
+            points.push_back(sf::Vector2<double>(lon, lat));
+        }
+    }
+
+    PointPath() {}
+};
+
 struct Edge
 {
     sql::Edge data;
+    PointPath path;
+
+    Edge(sql::Edge data) : data(data), path(data.wktLinestringOffset)
+    {
+    }
 };
 
 struct Node
 {
     sql::Node data;
     vector<Edge> edgesOut;
+
+    Node(sql::Node data) : data(data) {}
 };
 
 struct Chunk
@@ -118,7 +155,7 @@ struct Chunk
         this->id = chunk.id;
         this->gridRow = chunk.gridRow;
         this->gridcol = chunk.gridCol;
-        this->bbox = GeoRect(chunk.top, chunk.left, chunk.right - chunk.left, chunk.top - chunk.bottom);
+        this->bbox = GeoRect(chunk.topOffset, chunk.leftOffset, chunk.size, chunk.size);
 
         // prealloc space for all nodes
         nodes.reserve(chunk.nNodes);
@@ -127,14 +164,14 @@ struct Chunk
 
         // load all nodes and attach out-edges to them
 
-        for (auto node : storage->iterate<sql::Node>(where(c(&sql::Node::chunk) == chunk.id), limit(chunk.nNodes)))
+        for (auto sqlNode : storage->iterate<sql::Node>(where(c(&sql::Node::chunk) == chunk.id), limit(chunk.nNodes)))
         {
-            nodes.emplace(node.id, Node{node, {}});
+            nodes.emplace(sqlNode.id, Node(sqlNode));
         }
 
-        for (auto edge : storage->iterate<sql::Edge>(where(c(&sql::Edge::chunk) == chunk.id), limit(chunk.nEdges)))
+        for (auto sqlEdge : storage->iterate<sql::Edge>(where(c(&sql::Edge::chunk) == chunk.id), limit(chunk.nEdges)))
         {
-            nodes.at(edge.sourceNode).edgesOut.push_back(Edge{edge});
+            nodes.at(sqlEdge.sourceNode).edgesOut.push_back(Edge(sqlEdge));
         }
     }
 };
@@ -152,9 +189,9 @@ public:
         using namespace sqlite_orm;
 
         // convert row,col to string because keys need to be string
-        ostringstream oss;
-        oss << row << col;
-        auto key = oss.str();
+        stringstream ss;
+        ss << row << col;
+        auto key = ss.str();
 
         // load chunk if there is a cache miss
         if (!cache.exists(key))
@@ -177,29 +214,58 @@ public:
     MapSprite()
     {  
     }
-    MapSprite(GeoRect mapAreaGeoBbox, Pixels viewportW, Pixels viewPortH) : mapAreaGeoBbox(mapAreaGeoBbox)
+    MapSprite(GeoRect mapAreaGeoBbox, Pixels viewportW, Pixels viewPortH, double ratioPixelsPerDegree, Degrees chunkSize)
     {
-        viewportBbox.width = viewportW;
-        viewportBbox.height = viewPortH;
+        double dp = 1/ratioPixelsPerDegree;  // degrees per pixel
+
+        this->ratioPixelsPerDegree = ratioPixelsPerDegree;
+        this->chunkSize = chunkSize;
+
+        // geographic bounding boxes for entire map and visible area
+        this->mapAreaGeoBbox = mapAreaGeoBbox;
+        this->viewportGeoBbox = GeoRect(0, 0, pixelsToDegrees(viewportW, dp), pixelsToDegrees(viewPortH, dp));
+
+        // create render texture that is the same size as the map area in pixels
+        // all drawing will be done to this target so that off-screen drawing can be done.
+        auto rect = geoRectToDisplayRect(mapAreaGeoBbox, ratioPixelsPerDegree);
+        this->renderTexture.create(static_cast<float>(rect.width), static_cast<float>(rect.height));
+
+        // set this's Texture to that of the render texture so that this can be draw to window
+        // To change the visible region of the map, use this->setTextureRect to
+        // bound the correct region of the RenderTexture
+        this->setTexture(this->renderTexture.getTexture());
     }
 
-    void drawChunk(const Chunk &chunk)
+    void renderChunk(const Chunk &chunk)
     {
         // skip if chunk is already drawn
         if (rendered_chunks.find(chunk.id) != rendered_chunks.end())
             return;
         
-        // ......
+        // TODO maybe modify DB so that lat/lon is stored as offset from area topleft lat/lon ?
+        // because the locations of nodes and edges are static, this would save a lot of calculation.
+
+        for (const auto &kv : chunk.nodes)
+        {
+            for (const auto &edge : kv.second.edgesOut)
+            {
+
+            }
+        }
 
         rendered_chunks.emplace(chunk.id);
     }
 
 private:
     sf::RenderTexture renderTexture;
+
     unordered_set<ChunkID> rendered_chunks;
+    Degrees chunkSize;
 
     GeoRect mapAreaGeoBbox;
-    DisplayRect viewportBbox;
+    GeoRect viewportGeoBbox;
+    double ratioPixelsPerDegree;
+
 };
 
 class App

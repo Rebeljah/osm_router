@@ -35,13 +35,17 @@ sql_script = """
         id INTEGER PRIMARY KEY,
         longitude REAL,
         latitude REAL,
+        offset_longitude REAL,
+        offset_latitude REAL,
         chunk INTEGER,
         n_edges_out INTEGER,
         n_edges_in INTEGER,
         FOREIGN KEY(chunk) REFERENCES chunk(id)
     );
-    CREATE INDEX IF NOT EXISTS idx_node_latitude ON node (latitude);
     CREATE INDEX IF NOT EXISTS idx_node_longitude ON node (longitude);
+    CREATE INDEX IF NOT EXISTS idx_node_latitude ON node (latitude);
+    CREATE INDEX IF NOT EXISTS idx_node_offset_longitude ON node (offset_longitude);
+    CREATE INDEX IF NOT EXISTS idx_node_offset_latitude ON node (offset_latitude);
     CREATE INDEX IF NOT EXISTS idx_node_chunk ON node (chunk);
 
     -- Create edge table with foreign keys and indexes
@@ -58,6 +62,7 @@ sql_script = """
         bike_backward TEXT,
         train TEXT,
         wkt_linestring TEXT,
+        wkt_linestring_offset TEXT,
         chunk INTEGER,
         FOREIGN KEY(source_node) REFERENCES node(id),
         FOREIGN KEY(target_node) REFERENCES node(id),
@@ -78,18 +83,19 @@ sql_script = """
         grid_row INTEGER,
         grid_col INTEGER,
         left REAL,
-        right REAL,
-        bottom REAL,
         top REAL,
+        left_offset REAL,
+        top_offset REAL,
+        size REAL,
         n_nodes INTEGER,
         n_edges INTEGER
     );
     CREATE INDEX IF NOT EXISTS idx_chunk_grid_row ON chunk (grid_row);
     CREATE INDEX IF NOT EXISTS idx_chunk_grid_col ON chunk (grid_col);
     CREATE INDEX IF NOT EXISTS idx_chunk_left ON chunk (left);
-    CREATE INDEX IF NOT EXISTS idx_chunk_right ON chunk (right);
-    CREATE INDEX IF NOT EXISTS idx_chunk_bottom ON chunk (bottom);
     CREATE INDEX IF NOT EXISTS idx_chunk_top ON chunk (top);
+    CREATE INDEX IF NOT EXISTS idx_chunk_left_offset ON chunk (left_offset);
+    CREATE INDEX IF NOT EXISTS idx_chunk_top_offset ON chunk (top_offset);
 """
 cur.executescript(sql_script)
 
