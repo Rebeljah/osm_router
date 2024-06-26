@@ -72,6 +72,18 @@ Degrees pixelsToDegrees(Pixels x, double dp)
     return x * dp;
 }
 
+struct DisplayRect : public sf::Rect<Pixels>
+{
+    DisplayRect(Pixels top, Pixels left, Pixels w, Pixels h) : sf::Rect<Pixels>(top, left, w, h) {}
+    DisplayRect() : sf::Rect<Pixels>(0,0,0,0) {}
+};
+
+struct GeoRect : public sf::Rect<Degrees>
+{
+    GeoRect(Degrees top, Degrees left, Degrees w, Degrees h) : sf::Rect<Degrees>(top, left, w, h) {}
+    GeoRect() : sf::Rect<Degrees>(0,0,0,0) {}
+};
+
 /*
 Convert a geo rect in decimal degrees to a pixel rect given a conversion ratio.
 @param r: input rect
@@ -94,17 +106,6 @@ GeoRect displayRectToGeoRect(DisplayRect r, double dp)
     return GeoRect(f(r.top), f(r.left), f(r.width), f(r.height));
 }
 
-struct DisplayRect : public sf::Rect<Pixels>
-{
-    DisplayRect(Pixels top, Pixels left, Pixels w, Pixels h) : sf::Rect<Pixels>(top, left, w, h) {}
-    DisplayRect() : sf::Rect<Pixels>(0,0,0,0) {}
-};
-
-struct GeoRect : public sf::Rect<Degrees>
-{
-    GeoRect(Degrees top, Degrees left, Degrees w, Degrees h) : sf::Rect<Degrees>(top, left, w, h) {}
-    GeoRect() : sf::Rect<Degrees>(0,0,0,0) {}
-};
 
 struct PointPath
 {
