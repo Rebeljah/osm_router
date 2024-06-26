@@ -22,6 +22,14 @@ typedef double Meters;
 typedef int NodeID;
 typedef int ChunkID;
 
+enum class PanDirection
+{
+    Up,
+    Down,
+    Left,
+    Right,
+};
+
 // https://gist.github.com/tcmug/9712f9192571c5fe65c362e6e86266f8
 vector<string> splitString(string s, string delim) {
     vector<string> result;
@@ -224,7 +232,7 @@ public:
 
         // geographic bounding boxes for entire map and visible area
         this->mapAreaGeoBbox = mapAreaGeoBbox;
-        this->viewportGeoBbox = GeoRect(0, 0, pixelsToDegrees(viewportW, dp), pixelsToDegrees(viewPortH, dp));
+        this->viewportBbox = DisplayRect(0, 0, viewportW, viewPortH);
 
         // create render texture that is the same size as the map area in pixels
         // all drawing will be done to this target so that off-screen drawing can be done.
@@ -237,24 +245,50 @@ public:
         this->setTexture(this->renderTexture.getTexture());
     }
 
-    void renderChunk(const Chunk &chunk)
+    void controlPanning(PanDirection direction, bool isPanning)
     {
-        // skip if chunk is already drawn
-        if (rendered_chunks.find(chunk.id) != rendered_chunks.end())
-            return;
-        
-        // TODO maybe modify DB so that lat/lon is stored as offset from area topleft lat/lon ?
-        // because the locations of nodes and edges are static, this would save a lot of calculation.
-
-        for (const auto &kv : chunk.nodes)
+        switch (direction)
         {
-            for (const auto &edge : kv.second.edgesOut)
-            {
+            case PanDirection::Up:
+                isPanningUp = isPanning; break;
+            case PanDirection::Down:
+                isPanningDown = isPanning; break;
+            case PanDirection::Left:
+                isPanningLeft = isPanning; break;
+            case PanDirection::Right:
+                isPanningRight = isPanning; break;
+        }
+    }
 
+    void update(double deltaTime)
+    {
+        double delta = panVelocity * deltaTime;
+
+        if (isPanningUp ^ isPanningDown)  // one or the other but not both
+        {
+            if (isPanningUp)
+            {
+                viewportBbox.top -= delta;
+            }
+
+            if (isPanningDown)
+            {
+                viewportBbox.top += delta;
             }
         }
 
-        rendered_chunks.emplace(chunk.id);
+        if (isPanningLeft ^ isPanningRight)  // stops from trying to pan left and right at same time
+        {
+            if (isPanningLeft)
+            {
+                viewportBbox.left -= delta;
+            }
+
+            if (isPanningRight)
+            {
+                viewportBbox.left += delta;
+            }
+        }
     }
 
 private:
@@ -264,9 +298,15 @@ private:
     Degrees chunkSize;
 
     GeoRect mapAreaGeoBbox;
-    GeoRect viewportGeoBbox;
+    DisplayRect viewportBbox;
     double ratioPixelsPerDegree;
 
+    //panning controls
+    int panVelocity = 150; // pixels per second
+    bool isPanningLeft = false;
+    bool isPanningRight = false;
+    bool isPanningUp = false;
+    bool isPanningDown = false;
 };
 
 class App
@@ -305,6 +345,29 @@ private:
         {
             if (event.type == sf::Event::Closed)
                 window.close();
+            
+            // pan the map around by holding arrow keys
+            if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
+            {
+                bool wasPressed = event.type == sf::Event::KeyPressed;
+
+                if (event.key.code == sf::Keyboard::Key::Up)
+                {
+                    mapSprite.controlPanning(PanDirection::Up, wasPressed);
+                }
+                else if (event.key.code == sf::Keyboard::Key::Down)
+                {
+                    mapSprite.controlPanning(PanDirection::Down, wasPressed);
+                }
+                else if (event.key.code == sf::Keyboard::Key::Left)
+                {
+                    mapSprite.controlPanning(PanDirection::Left, wasPressed);
+                }
+                else if (event.key.code == sf::Keyboard::Key::Right)
+                {
+                    mapSprite.controlPanning(PanDirection::Right, wasPressed);
+                }
+            }
         }
     }
 
