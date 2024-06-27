@@ -30,6 +30,17 @@ enum class PanDirection
     Right,
 };
 
+
+// code adapted from: https://www.geeksforgeeks.org/unordered-set-of-pairs-in-c-with-examples/#
+template <typename T>
+struct PairHasher
+{
+    size_t operator()(const std::pair<T, T> &pair) const
+    {
+        return std::hash<T>{}(pair.first) ^ std::hash<T>{}(pair.second);
+    }
+};
+
 // https://gist.github.com/tcmug/9712f9192571c5fe65c362e6e86266f8
 vector<string> splitString(string s, string delim) {
     vector<string> result;
@@ -82,13 +93,21 @@ Degrees pixelsToDegrees(Pixels x, double dp)
 
 struct DisplayRect : public sf::Rect<Pixels>
 {
-    DisplayRect(Pixels top, Pixels left, Pixels w, Pixels h) : sf::Rect<Pixels>(top, left, w, h) {}
+    DisplayRect(Pixels top, Pixels left, Pixels w, Pixels h) : sf::Rect<Pixels>(left, top, w, h) {}
     DisplayRect() : sf::Rect<Pixels>(0,0,0,0) {}
+    Pixels right() const
+    {
+        return left + width;
+    }
+    Pixels bottom() const
+    {
+        return top + height;
+    }
 };
 
 struct GeoRect : public sf::Rect<Degrees>
 {
-    GeoRect(Degrees top, Degrees left, Degrees w, Degrees h) : sf::Rect<Degrees>(top, left, w, h) {}
+    GeoRect(Degrees top, Degrees left, Degrees w, Degrees h) : sf::Rect<Degrees>(left, top, w, h) {}
     GeoRect() : sf::Rect<Degrees>(0,0,0,0) {}
 };
 
@@ -153,18 +172,14 @@ struct Node
 
 struct Chunk
 {
-    int id;
-    int gridRow;
-    int gridcol;
-    GeoRect bbox;
+    sql::Chunk data;
+    GeoRect geoBbox;
     unordered_map<NodeID, Node> nodes;
 
     Chunk(sql::Chunk chunk, sql::Storage *storage)
     {
-        this->id = chunk.id;
-        this->gridRow = chunk.gridRow;
-        this->gridcol = chunk.gridCol;
-        this->bbox = GeoRect(chunk.topOffset, chunk.leftOffset, chunk.size, chunk.size);
+        this->data = chunk;
+        this->geoBbox = GeoRect(chunk.topOffset, chunk.leftOffset, chunk.size, chunk.size);
 
         // prealloc space for all nodes
         nodes.reserve(chunk.nNodes);
@@ -193,6 +208,8 @@ public:
 
     }
 
+    ChunkCache() : cache(0) {}
+
     Chunk *get(int row, int col)
     {
         using namespace sqlite_orm;
@@ -202,14 +219,20 @@ public:
         ss << row << col;
         auto key = ss.str();
 
-        // load chunk if there is a cache miss
-        if (!cache.exists(key))
+        Chunk *pChunk;
+
+        try 
         {
-            auto sqlChunk = storage->get_all<sql::Chunk>(where(c(&sql::Chunk::gridRow) == row and c(&sql::Chunk::gridCol) == col), limit(1)).at(0);
-            cache.put(key, new Chunk(sqlChunk, storage));
+            pChunk = cache.get(key);
+        }
+        catch (std::range_error)
+        {
+            sql::Chunk sqlChunk = storage->get_all<sql::Chunk>(where(c(&sql::Chunk::gridRow) == row and c(&sql::Chunk::gridCol) == col), limit(1)).at(0);
+            pChunk = new Chunk(sqlChunk, storage);
+            cache.put(key, pChunk);
         }
 
-        return cache.get(key);
+        return pChunk;
     }
     
 private:
@@ -217,32 +240,44 @@ private:
     sql::Storage *storage;
 };
 
-class MapSprite : public sf::Sprite
+struct ChunkSprite : sf::Sprite
+{
+    ChunkSprite(DisplayRect rect, const Chunk &chunk, double pd) : rect(rect)
+    {
+        renderTexture.create(rect.width, rect.height);
+        for (auto [ id, node ] : chunk.nodes)
+        {
+            Degrees offsetLat = node.data.offsetLatitude;
+            Degrees offsetLon = node.data.offsetLongitude;
+            Pixels x = degreesToPixels(offsetLon, pd) - rect.left;
+            Pixels y = degreesToPixels(offsetLat, pd) - rect.top;
+
+            auto dot = sf::CircleShape(2, 4);
+            dot.setFillColor(sf::Color::Green);
+            dot.setPosition({ x, y });
+            renderTexture.draw(dot);
+        }
+        renderTexture.display();
+        this->setTexture(renderTexture.getTexture());
+    }
+
+    sf::RenderTexture renderTexture;
+    DisplayRect rect;
+};
+
+class Viewport
 {
 public:
-    MapSprite()
+    Viewport()
     {  
     }
-    MapSprite(GeoRect mapAreaGeoBbox, Pixels viewportW, Pixels viewPortH, double ratioPixelsPerDegree, Degrees chunkSize)
+    Viewport(Pixels w, Pixels h, double ratioPixelsPerDegree, Pixels chunkSize, ChunkCache *chunkCache, DisplayRect mapBounds)
     {
-        double dp = 1/ratioPixelsPerDegree;  // degrees per pixel
-
+        this->mapBounds = mapBounds;
+        this->visibleArea = DisplayRect(mapBounds.top, mapBounds.left, w, h);
         this->ratioPixelsPerDegree = ratioPixelsPerDegree;
         this->chunkSize = chunkSize;
-
-        // geographic bounding boxes for entire map and visible area
-        this->mapAreaGeoBbox = mapAreaGeoBbox;
-        this->viewportBbox = DisplayRect(0, 0, viewportW, viewPortH);
-
-        // create render texture that is the same size as the map area in pixels
-        // all drawing will be done to this target so that off-screen drawing can be done.
-        auto rect = geoRectToDisplayRect(mapAreaGeoBbox, ratioPixelsPerDegree);
-        this->renderTexture.create(static_cast<float>(rect.width), static_cast<float>(rect.height));
-
-        // set this's Texture to that of the render texture so that this can be draw to window
-        // To change the visible region of the map, use this->setTextureRect to
-        // bound the correct region of the RenderTexture
-        this->setTexture(this->renderTexture.getTexture());
+        this->chunkCache = chunkCache;
     }
 
     void controlPanning(PanDirection direction, bool isPanning)
@@ -263,30 +298,89 @@ public:
     void update(float deltaTime)
     {
         double delta = panVelocity * deltaTime;
+        bool panned = false;
 
         if (isPanningUp ^ isPanningDown)  // one or the other but not both
         {
             if (isPanningUp)
             {
-                viewportBbox.top -= delta;
+                visibleArea.top -= delta;
             }
 
             if (isPanningDown)
             {
-                viewportBbox.top += delta;
+                visibleArea.top += delta;
             }
+
+            panned = true;
         }
 
         if (isPanningLeft ^ isPanningRight)  // stops from trying to pan left and right at same time
         {
             if (isPanningLeft)
             {
-                viewportBbox.left -= delta;
+                visibleArea.left -= delta;
             }
 
             if (isPanningRight)
             {
-                viewportBbox.left += delta;
+                visibleArea.left += delta;
+            }
+
+            panned = true;
+        }
+
+        // check collision with map boundaries
+        if (visibleArea.left < mapBounds.left)
+        {
+            visibleArea.left = mapBounds.left;
+        }
+        else if (visibleArea.right() > mapBounds.right())
+        {
+            visibleArea.left = mapBounds.right() - visibleArea.width;
+        }
+        if (visibleArea.top < mapBounds.top)
+        {
+            visibleArea.top = mapBounds.top;
+        }
+        else if (visibleArea.bottom() > mapBounds.bottom())
+        {
+            visibleArea.top = mapBounds.bottom() - visibleArea.height;
+        }
+    }
+
+    void render(sf::RenderWindow &window)
+    {
+        // calculate intersecting chunks by calculating the range of of chunk rows
+        // and chunk columns that the viewport intersects with
+
+        int chunkRowTop = int(visibleArea.top / chunkSize);
+        int chunkRowBottom = int(visibleArea.bottom() / chunkSize);
+        int chunkColLeft = int(visibleArea.left / chunkSize);
+        int chunkColRight = int(visibleArea.right() / chunkSize);
+
+        for (int row = chunkRowTop; row <= chunkRowBottom; ++row)
+        {
+            for (int col = chunkColLeft; col <= chunkColRight; ++col)
+            {
+                auto key = std::make_pair(row, col);
+
+                ChunkSprite *chunkSprite;
+
+                if (renderedChunks.find(key) == renderedChunks.end())
+                {
+                    const Chunk *chunk = chunkCache->get(row, col);
+                    DisplayRect rect = DisplayRect(degreesToPixels(chunk->data.topOffset, ratioPixelsPerDegree), degreesToPixels(chunk->data.leftOffset, ratioPixelsPerDegree), chunkSize, chunkSize);
+                    chunkSprite = new ChunkSprite(rect, *chunk, ratioPixelsPerDegree);
+                    renderedChunks.emplace(key, chunkSprite);
+                }
+                else{
+                    chunkSprite = renderedChunks.at(key);
+                }
+
+                // draw chunk
+                chunkSprite->setPosition(chunkSprite->rect.left - visibleArea.left, chunkSprite->rect.top - visibleArea.top);
+                window.draw(*chunkSprite);
             }
         }
     }
@@ -294,15 +388,16 @@ public:
 private:
     sf::RenderTexture renderTexture;
 
-    unordered_set<ChunkID> rendered_chunks;
-    Degrees chunkSize;
+    ChunkCache *chunkCache;
+    unordered_map<std::pair<int, int>, ChunkSprite *, PairHasher<int>> renderedChunks;
+    Pixels chunkSize;
 
-    GeoRect mapAreaGeoBbox;
-    DisplayRect viewportBbox;
+    DisplayRect mapBounds;
+    DisplayRect visibleArea;
     double ratioPixelsPerDegree;
 
     //panning controls
-    int panVelocity = 150; // pixels per second
+    int panVelocity = 300; // pixels per second
     bool isPanningLeft = false;
     bool isPanningRight = false;
     bool isPanningUp = false;
@@ -315,6 +410,26 @@ public:
     App() : window(sf::VideoMode(800, 800), "Map")
     {
         window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
+        chunkCache = new ChunkCache(&storage);
+        
+        Degrees mapTop = *config["map"]["bbox_top"].value<double>();
+        Degrees mapLeft = *config["map"]["bbox_left"].value<double>();
+        Degrees mapBottom = *config["map"]["bbox_bottom"].value<double>();
+        Degrees mapRight = *config["map"]["bbox_right"].value<double>();
+        Degrees viewportW = *config["viewport"]["default_w"].value<double>();
+        Degrees viewportH = *config["viewport"]["default_h"].value<double>();
+        Degrees chunkSize = *config["map"]["chunk_size"].value<double>();
+
+        double pd = 800 / viewportW;
+        
+        viewport = new Viewport(
+            degreesToPixels(viewportW, pd),
+            degreesToPixels(viewportH, pd),
+            pd,
+            degreesToPixels(chunkSize, pd),
+            chunkCache,
+            geoRectToDisplayRect(GeoRect(0, 0, mapRight - mapLeft, mapTop - mapBottom), pd)
+        );
     }
 
     ~App()
@@ -334,7 +449,9 @@ public:
 private:
     sf::RenderWindow window;
     sf::Clock clock;
-    MapSprite mapSprite;
+
+    Viewport *viewport;
+    ChunkCache *chunkCache;
 
     toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
     sql::Storage storage = sql::loadStorage("./db/map.db");
@@ -354,19 +471,19 @@ private:
 
                 if (event.key.code == sf::Keyboard::Key::Up)
                 {
-                    mapSprite.controlPanning(PanDirection::Up, wasPressed);
+                    viewport->controlPanning(PanDirection::Up, wasPressed);
                 }
                 else if (event.key.code == sf::Keyboard::Key::Down)
                 {
-                    mapSprite.controlPanning(PanDirection::Down, wasPressed);
+                    viewport->controlPanning(PanDirection::Down, wasPressed);
                 }
                 else if (event.key.code == sf::Keyboard::Key::Left)
                 {
-                    mapSprite.controlPanning(PanDirection::Left, wasPressed);
+                    viewport->controlPanning(PanDirection::Left, wasPressed);
                 }
                 else if (event.key.code == sf::Keyboard::Key::Right)
                 {
-                    mapSprite.controlPanning(PanDirection::Right, wasPressed);
+                    viewport->controlPanning(PanDirection::Right, wasPressed);
                 }
             }
         }
@@ -375,13 +492,13 @@ private:
     void update()
     {
         float deltaTime = clock.restart().asSeconds();
-        mapSprite.update(deltaTime);
+        viewport->update(deltaTime);
     }
 
     void render()
     {
         window.clear();
-        window.draw(mapSprite);
+        viewport->render(window);
         window.display();
     }
 };
