@@ -1,14 +1,19 @@
-#include <vector>
 #include <string>
+#include <vector>
 #include <unordered_map>
 #include <unordered_set>
-#include <sstream>
+#include <mutex>
+#include <thread>
+#include <future>
+#include <queue>
+#include <chrono>
+#include <optional>
 
 using std::string;
-using std::vector;
 using std::unordered_map;
-using std::unordered_set;
-using std::stringstream;
+using std::vector;
+using std::promise;
+using std::future;
 
 #include <SFML/Graphics.hpp>
 #include <tomlplusplus/toml.hpp>
@@ -30,7 +35,6 @@ enum class PanDirection
     Right,
 };
 
-
 // code adapted from: https://www.geeksforgeeks.org/unordered-set-of-pairs-in-c-with-examples/#
 template <typename T>
 struct PairHasher
@@ -42,10 +46,12 @@ struct PairHasher
 };
 
 // https://gist.github.com/tcmug/9712f9192571c5fe65c362e6e86266f8
-vector<string> splitString(string s, string delim) {
+vector<string> splitString(string s, string delim)
+{
     vector<string> result;
     size_t from = 0, to = 0;
-    while (string::npos != (to = s.find(delim, from))) {
+    while (string::npos != (to = s.find(delim, from)))
+    {
         result.push_back(s.substr(from, to - from));
         from = to + delim.length();
     }
@@ -94,7 +100,7 @@ Degrees pixelsToDegrees(Pixels x, double dp)
 struct DisplayRect : public sf::Rect<Pixels>
 {
     DisplayRect(Pixels top, Pixels left, Pixels w, Pixels h) : sf::Rect<Pixels>(left, top, w, h) {}
-    DisplayRect() : sf::Rect<Pixels>(0,0,0,0) {}
+    DisplayRect() : sf::Rect<Pixels>(0, 0, 0, 0) {}
     Pixels right() const
     {
         return left + width;
@@ -108,7 +114,7 @@ struct DisplayRect : public sf::Rect<Pixels>
 struct GeoRect : public sf::Rect<Degrees>
 {
     GeoRect(Degrees top, Degrees left, Degrees w, Degrees h) : sf::Rect<Degrees>(left, top, w, h) {}
-    GeoRect() : sf::Rect<Degrees>(0,0,0,0) {}
+    GeoRect() : sf::Rect<Degrees>(0, 0, 0, 0) {}
 };
 
 /*
@@ -118,7 +124,8 @@ Convert a geo rect in decimal degrees to a pixel rect given a conversion ratio.
 */
 DisplayRect geoRectToDisplayRect(GeoRect r, double pd)
 {
-    auto f = [pd](Pixels x){ return degreesToPixels(x, pd);};
+    auto f = [pd](Pixels x)
+    { return degreesToPixels(x, pd); };
     return DisplayRect(f(r.top), f(r.left), f(r.width), f(r.height));
 }
 
@@ -129,10 +136,10 @@ Convert a display rect in pixels to a georect in decimal degrees given a convers
 */
 GeoRect displayRectToGeoRect(DisplayRect r, double dp)
 {
-    auto f = [dp](Pixels x){ return pixelsToDegrees(x, dp);};
+    auto f = [dp](Pixels x)
+    { return pixelsToDegrees(x, dp); };
     return GeoRect(f(r.top), f(r.left), f(r.width), f(r.height));
 }
-
 
 struct PointPath
 {
@@ -200,44 +207,89 @@ struct Chunk
     }
 };
 
-class ChunkCache
+class ChunkLoader
 {
 public:
-    ChunkCache(sql::Storage *storage) : storage(storage), cache(int(512 / 0.112764))  // limit to 512mb, average chunksize is 0.112764mb these values are in the config also
+    void start(sql::Storage *storage)
     {
+        t1 = std::thread([this, storage](){ this->loaderThread(storage); });
+    };
 
+    std::optional<Chunk *> get(int row, int col)
+    {
+        if (m_chunkGrid.size() <= row)
+            m_chunkGrid.resize(row + 1);
+
+        if (m_chunkGrid[row].size() <= col)
+            m_chunkGrid[row].resize(col + 1);
+
+        if (auto pChnk = m_chunkGrid[row][col])
+        {
+            return pChnk;
+        }
+
+        load(row, col);
+        return std::nullopt;
+    }
+private:
+    void load(int row, int col)
+    {
+        auto gridCoord = std::make_pair(row, col);
+
+        m_mutex.lock();
+
+        bool alreadyLoading = !m_currentlyLoading.emplace(gridCoord).second;
+        if (!alreadyLoading)
+        {
+            m_loadQueue.push(gridCoord);
+        }
+
+        m_mutex.unlock();
     }
 
-    ChunkCache() : cache(0) {}
-
-    Chunk *get(int row, int col)
+    void loaderThread(sql::Storage *storage)
     {
         using namespace sqlite_orm;
 
-        // convert row,col to string because keys need to be string
-        stringstream ss;
-        ss << row << col;
-        auto key = ss.str();
-
-        Chunk *pChunk;
-
-        try 
+        while (true)
         {
-            pChunk = cache.get(key);
-        }
-        catch (std::range_error)
-        {
-            sql::Chunk sqlChunk = storage->get_all<sql::Chunk>(where(c(&sql::Chunk::gridRow) == row and c(&sql::Chunk::gridCol) == col), limit(1)).at(0);
-            pChunk = new Chunk(sqlChunk, storage);
-            cache.put(key, pChunk);
-        }
+            if (m_loadQueue.empty())
+            {
+                continue;
+            }
 
-        return pChunk;
+            m_mutex.lock();
+
+            auto gridCoord = m_loadQueue.front();
+            m_loadQueue.pop();
+            
+            m_mutex.unlock();
+
+            auto [row, col] = gridCoord;
+            auto sqlChunk = storage->get_all<sql::Chunk>(
+                where(
+                    c(&sql::Chunk::gridRow) == row and
+                    c(&sql::Chunk::gridCol) == col
+                ),
+                limit(1)
+            ).at(0);
+
+            Chunk *newChunk = new Chunk(sqlChunk, storage);
+
+            m_mutex.lock();
+
+            m_chunkGrid[row][col] = newChunk;
+            m_currentlyLoading.erase(gridCoord);
+
+            m_mutex.unlock();
+        }
     }
-    
-private:
-    cache::lru_cache<string, Chunk *> cache;
-    sql::Storage *storage;
+
+    vector<vector<Chunk *>> m_chunkGrid;
+    std::mutex m_mutex;
+    std::queue<std::pair<int, int>> m_loadQueue;
+    std::unordered_set<std::pair<int, int>, PairHasher<int>> m_currentlyLoading;
+    std::thread t1;
 };
 
 struct ChunkSprite : sf::Sprite
@@ -245,16 +297,16 @@ struct ChunkSprite : sf::Sprite
     ChunkSprite(DisplayRect rect, const Chunk &chunk, double pd) : rect(rect)
     {
         renderTexture.create(rect.width, rect.height);
-        for (auto [ id, node ] : chunk.nodes)
+        for (auto [id, node] : chunk.nodes)
         {
             Degrees offsetLat = node.data.offsetLatitude;
             Degrees offsetLon = node.data.offsetLongitude;
             Pixels x = degreesToPixels(offsetLon, pd) - rect.left;
             Pixels y = degreesToPixels(offsetLat, pd) - rect.top;
 
-            auto dot = sf::CircleShape(2, 4);
+            auto dot = sf::CircleShape(1, 3);
             dot.setFillColor(sf::Color::Green);
-            dot.setPosition({ x, y });
+            dot.setPosition({x, y});
             renderTexture.draw(dot);
         }
         renderTexture.display();
@@ -265,33 +317,96 @@ struct ChunkSprite : sf::Sprite
     DisplayRect rect;
 };
 
-class Viewport
+class ChunkSpriteLoader
 {
 public:
-    Viewport()
-    {  
-    }
-    Viewport(Pixels w, Pixels h, double ratioPixelsPerDegree, Pixels chunkSize, ChunkCache *chunkCache, DisplayRect mapBounds)
+    ChunkSpriteLoader() {}
+
+    ChunkSpriteLoader(ChunkLoader *pChunkLoader, Pixels chunkSize, double pd)
+    : m_pChunkLoader(pChunkLoader),
+      m_chunkSize(chunkSize),
+      m_pd(pd)
     {
-        this->mapBounds = mapBounds;
-        this->visibleArea = DisplayRect(mapBounds.top, mapBounds.left, w, h);
-        this->ratioPixelsPerDegree = ratioPixelsPerDegree;
-        this->chunkSize = chunkSize;
-        this->chunkCache = chunkCache;
+    }
+
+    void init(ChunkLoader *pChunkLoader, Pixels chunkSize, double pd)
+    {
+        m_pChunkLoader = pChunkLoader;
+        m_chunkSize = chunkSize;
+        m_pd = pd;
+    }
+
+    std::optional<ChunkSprite *> get(int row, int col)
+    {
+        ChunkSprite *res = nullptr;
+
+        if (m_grid.size() <= row)
+            m_grid.resize(row + 1);
+
+        if (m_grid[row].size() <= col)
+            m_grid[row].resize(col + 1);
+        
+        if (res = m_grid[row][col])
+        {
+            return res;
+        }
+
+        std::optional<Chunk *> chunk;
+        if (!(chunk = m_pChunkLoader->get(row, col)).has_value())
+        {
+            return std::nullopt;
+        }
+
+        DisplayRect rect = DisplayRect(degreesToPixels((*chunk)->data.topOffset, m_pd), degreesToPixels((*chunk)->data.leftOffset, m_pd), m_chunkSize, m_chunkSize);
+        res = new ChunkSprite(rect, **chunk, m_pd);
+        m_grid[row][col] = res;
+
+        return res;
+    }
+
+private:
+    vector<vector<ChunkSprite *>> m_grid;
+    ChunkLoader *m_pChunkLoader;
+    Pixels m_chunkSize;
+    double m_pd;
+};
+
+class Viewport : public DisplayRect
+{
+public:
+    Viewport() {}
+
+    Viewport(Pixels w, Pixels h, Pixels mapWidth, Pixels mapHeight) : DisplayRect(0, 0, w, h)
+    {
+        this->mapBounds = DisplayRect(0, 0, mapWidth, mapHeight);
+    }
+
+    Viewport &operator=(const Viewport &other)
+    {
+        this->top = other.top;
+        this->left = other.left;
+        this->width = other.width;
+        this->height = other.height;
+        this->mapBounds = other.mapBounds;
+        return *this;
     }
 
     void controlPanning(PanDirection direction, bool isPanning)
     {
         switch (direction)
         {
-            case PanDirection::Up:
-                isPanningUp = isPanning; break;
-            case PanDirection::Down:
-                isPanningDown = isPanning; break;
-            case PanDirection::Left:
-                isPanningLeft = isPanning; break;
-            case PanDirection::Right:
-                isPanningRight = isPanning; break;
+        case PanDirection::Up:
+            isPanningUp = isPanning;
+            break;
+        case PanDirection::Down:
+            isPanningDown = isPanning;
+            break;
+        case PanDirection::Left:
+            isPanningLeft = isPanning;
+            break;
+        case PanDirection::Right:
+            isPanningRight = isPanning;
+            break;
         }
     }
 
@@ -300,104 +415,61 @@ public:
         double delta = panVelocity * deltaTime;
         bool panned = false;
 
-        if (isPanningUp ^ isPanningDown)  // one or the other but not both
+        if (isPanningUp ^ isPanningDown) // one or the other but not both
         {
             if (isPanningUp)
             {
-                visibleArea.top -= delta;
+                top -= delta;
             }
 
             if (isPanningDown)
             {
-                visibleArea.top += delta;
+                top += delta;
             }
 
             panned = true;
         }
 
-        if (isPanningLeft ^ isPanningRight)  // stops from trying to pan left and right at same time
+        if (isPanningLeft ^ isPanningRight) // stops from trying to pan left and right at same time
         {
             if (isPanningLeft)
             {
-                visibleArea.left -= delta;
+                left -= delta;
             }
 
             if (isPanningRight)
             {
-                visibleArea.left += delta;
+                left += delta;
             }
 
             panned = true;
         }
 
         // check collision with map boundaries
-        if (visibleArea.left < mapBounds.left)
+        if (left < mapBounds.left)
         {
-            visibleArea.left = mapBounds.left;
+            left = mapBounds.left;
         }
-        else if (visibleArea.right() > mapBounds.right())
+        else if (right() > mapBounds.right())
         {
-            visibleArea.left = mapBounds.right() - visibleArea.width;
+            left = mapBounds.right() - width;
         }
-        if (visibleArea.top < mapBounds.top)
+        if (top < mapBounds.top)
         {
-            visibleArea.top = mapBounds.top;
+            top = mapBounds.top;
         }
-        else if (visibleArea.bottom() > mapBounds.bottom())
+        else if (bottom() > mapBounds.bottom())
         {
-            visibleArea.top = mapBounds.bottom() - visibleArea.height;
-        }
-    }
-
-    void render(sf::RenderWindow &window)
-    {
-        // calculate intersecting chunks by calculating the range of of chunk rows
-        // and chunk columns that the viewport intersects with
-
-        int chunkRowTop = int(visibleArea.top / chunkSize);
-        int chunkRowBottom = int(visibleArea.bottom() / chunkSize);
-        int chunkColLeft = int(visibleArea.left / chunkSize);
-        int chunkColRight = int(visibleArea.right() / chunkSize);
-
-        for (int row = chunkRowTop; row <= chunkRowBottom; ++row)
-        {
-            for (int col = chunkColLeft; col <= chunkColRight; ++col)
-            {
-                auto key = std::make_pair(row, col);
-
-                ChunkSprite *chunkSprite;
-
-                if (renderedChunks.find(key) == renderedChunks.end())
-                {
-                    const Chunk *chunk = chunkCache->get(row, col);
-                    DisplayRect rect = DisplayRect(degreesToPixels(chunk->data.topOffset, ratioPixelsPerDegree), degreesToPixels(chunk->data.leftOffset, ratioPixelsPerDegree), chunkSize, chunkSize);
-                    chunkSprite = new ChunkSprite(rect, *chunk, ratioPixelsPerDegree);
-                    renderedChunks.emplace(key, chunkSprite);
-                }
-                else{
-                    chunkSprite = renderedChunks.at(key);
-                }
-
-                // draw chunk
-                chunkSprite->setPosition(chunkSprite->rect.left - visibleArea.left, chunkSprite->rect.top - visibleArea.top);
-                window.draw(*chunkSprite);
-            }
+            top = mapBounds.bottom() - height;
         }
     }
 
 private:
-    sf::RenderTexture renderTexture;
-
-    ChunkCache *chunkCache;
-    unordered_map<std::pair<int, int>, ChunkSprite *, PairHasher<int>> renderedChunks;
     Pixels chunkSize;
-
     DisplayRect mapBounds;
-    DisplayRect visibleArea;
-    double ratioPixelsPerDegree;
 
-    //panning controls
-    int panVelocity = 300; // pixels per second
+    // panning controls
+    int panVelocity = 450; // pixels per second
     bool isPanningLeft = false;
     bool isPanningRight = false;
     bool isPanningUp = false;
@@ -407,11 +479,8 @@ private:
 class App
 {
 public:
-    App() : window(sf::VideoMode(800, 800), "Map")
+    App() : window(sf::VideoMode(800, 800), "OSM Router"), chunkSpriteLoader()
     {
-        window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
-        chunkCache = new ChunkCache(&storage);
-        
         Degrees mapTop = *config["map"]["bbox_top"].value<double>();
         Degrees mapLeft = *config["map"]["bbox_left"].value<double>();
         Degrees mapBottom = *config["map"]["bbox_bottom"].value<double>();
@@ -420,16 +489,18 @@ public:
         Degrees viewportH = *config["viewport"]["default_h"].value<double>();
         Degrees chunkSize = *config["map"]["chunk_size"].value<double>();
 
-        double pd = 800 / viewportW;
-        
-        viewport = new Viewport(
+        pd = 800 / viewportW;
+
+        viewport = Viewport(
             degreesToPixels(viewportW, pd),
             degreesToPixels(viewportH, pd),
-            pd,
-            degreesToPixels(chunkSize, pd),
-            chunkCache,
-            geoRectToDisplayRect(GeoRect(0, 0, mapRight - mapLeft, mapTop - mapBottom), pd)
-        );
+            degreesToPixels(mapRight - mapLeft, pd),
+            degreesToPixels(mapTop - mapBottom, pd));
+        
+        chunkLoader.start(&storage);
+        chunkSpriteLoader.init(&chunkLoader, degreesToPixels(chunkSize, pd), pd);
+
+        window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
     }
 
     ~App()
@@ -447,15 +518,6 @@ public:
     }
 
 private:
-    sf::RenderWindow window;
-    sf::Clock clock;
-
-    Viewport *viewport;
-    ChunkCache *chunkCache;
-
-    toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
-    sql::Storage storage = sql::loadStorage("./db/map.db");
-
     void processEvents()
     {
         sf::Event event;
@@ -463,7 +525,7 @@ private:
         {
             if (event.type == sf::Event::Closed)
                 window.close();
-            
+
             // pan the map around by holding arrow keys
             if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
             {
@@ -471,19 +533,19 @@ private:
 
                 if (event.key.code == sf::Keyboard::Key::Up)
                 {
-                    viewport->controlPanning(PanDirection::Up, wasPressed);
+                    viewport.controlPanning(PanDirection::Up, wasPressed);
                 }
                 else if (event.key.code == sf::Keyboard::Key::Down)
                 {
-                    viewport->controlPanning(PanDirection::Down, wasPressed);
+                    viewport.controlPanning(PanDirection::Down, wasPressed);
                 }
                 else if (event.key.code == sf::Keyboard::Key::Left)
                 {
-                    viewport->controlPanning(PanDirection::Left, wasPressed);
+                    viewport.controlPanning(PanDirection::Left, wasPressed);
                 }
                 else if (event.key.code == sf::Keyboard::Key::Right)
                 {
-                    viewport->controlPanning(PanDirection::Right, wasPressed);
+                    viewport.controlPanning(PanDirection::Right, wasPressed);
                 }
             }
         }
@@ -492,13 +554,51 @@ private:
     void update()
     {
         float deltaTime = clock.restart().asSeconds();
-        viewport->update(deltaTime);
+        viewport.update(deltaTime);
     }
 
     void render()
     {
         window.clear();
-        viewport->render(window);
+
+        Pixels chunkSize = degreesToPixels(*config["map"]["chunk_size"].value<double>(), pd);
+        int chunkRowTop = int(viewport.top / chunkSize);
+        int chunkRowBottom = int(viewport.bottom() / chunkSize);
+        int chunkColLeft = int(viewport.left / chunkSize);
+        int chunkColRight = int(viewport.right() / chunkSize);
+
+        for (int row = chunkRowTop - 1; row <= chunkRowBottom + 1; ++row)
+        {
+            for (int col = chunkColLeft - 1; col <= chunkColRight + 1; ++col)
+            {
+                // TODO check right and bottom bound also
+                if (row < 0 || col < 0)
+                {
+                    continue;
+                }
+
+                auto sprite = chunkSpriteLoader.get(row, col);
+
+                if (!sprite.has_value())
+                    continue;
+
+                // draw chunk
+                (*sprite)->setPosition((*sprite)->rect.left - viewport.left, (*sprite)->rect.top - viewport.top);
+                window.draw(**sprite);
+            }
+        }
+
         window.display();
     }
+
+    sf::RenderWindow window;
+    sf::Clock clock;
+
+    Viewport viewport;
+    ChunkLoader chunkLoader;
+    ChunkSpriteLoader chunkSpriteLoader;
+    double pd;
+
+    toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
+    sql::Storage storage = sql::loadStorage("./db/map.db");
 };
