@@ -296,7 +296,7 @@ struct ChunkSprite : sf::Sprite
 {
     ChunkSprite(DisplayRect rect, const Chunk &chunk, double pd) : rect(rect)
     {
-        renderTexture.create(rect.width, rect.height);
+        renderTexture.create(rect.width+1, rect.height+1);
         for (auto [id, node] : chunk.nodes)
         {
             Degrees offsetLat = node.data.offsetLatitude;
