@@ -582,6 +582,10 @@ private:
                 if (!sprite.has_value())
                     continue;
 
+                // skip drawing chunks that are buffered but not in the viewport
+                if (row < chunkRowTop || row > chunkRowBottom || col < chunkColLeft || col > chunkColRight)
+                    continue;
+
                 // draw chunk
                 (*sprite)->setPosition((*sprite)->rect.left - viewport.left, (*sprite)->rect.top - viewport.top);
                 window.draw(**sprite);
