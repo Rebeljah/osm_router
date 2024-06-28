@@ -8,8 +8,6 @@ namespace sql
         int id;
         int gridRow;
         int gridCol;
-        double left;
-        double top;
         double leftOffset;
         double topOffset;
         double size;
@@ -24,13 +22,12 @@ namespace sql
         int sourceNode;
         int targetNode;
         double length;
-        std::string foot;
-        std::string carForward;
-        std::string carBackward;
-        std::string bikeForward;
-        std::string bikeBackward;
-        std::string train;
-        std::string wktLinestring;
+        int foot;
+        int carForward;
+        int carBackward;
+        int bikeForward;
+        int bikeBackward;
+        int train;
         std::string wktLinestringOffset;
         int chunk;
     };
@@ -38,8 +35,6 @@ namespace sql
     struct Node
     {
         int id;
-        double longitude;
-        double latitude;
         double offsetLongitude;
         double offsetLatitude;
         int chunk;
@@ -57,8 +52,6 @@ namespace sql
 
         return make_storage(
             dbPath,
-            mi("idx_node_latitude", &Node::latitude),
-            mi("idx_node_longitude", &Node::longitude),
             mi("idx_node_offset_longitude", &Node::offsetLongitude),
             mi("idx_node_offset_latitude", &Node::offsetLatitude),
             mi("idx_node_chunk", &Node::chunk),
@@ -74,8 +67,6 @@ namespace sql
 
             mi("idx_chunk_grid_row", &Chunk::gridRow),
             mi("idx_chunk_grid_col", &Chunk::gridCol),
-            mi("idx_chunk_left", &Chunk::left),
-            mi("idx_chunk_top", &Chunk::top),
             mi("idx_chunk_left_offset", &Chunk::leftOffset),
             mi("idx_chunk_top_offset", &Chunk::topOffset),
 
@@ -83,8 +74,6 @@ namespace sql
                mc("id", &Chunk::id, primary_key().autoincrement()),
                mc("grid_row", &Chunk::gridRow),
                mc("grid_col", &Chunk::gridCol),
-               mc("left", &Chunk::left),
-               mc("top", &Chunk::top),
                mc("top_offset", &Chunk::topOffset),
                mc("left_offset", &Chunk::leftOffset),
                mc("size", &Chunk::size),
@@ -103,7 +92,6 @@ namespace sql
                mc("bike_forward", &Edge::bikeForward),
                mc("bike_backward", &Edge::bikeBackward),
                mc("train", &Edge::train),
-               mc("wkt_linestring", &Edge::wktLinestring),
                mc("wkt_linestring_offset", &Edge::wktLinestringOffset),
                mc("chunk", &Edge::chunk),
                fk(&Edge::sourceNode).references(&Node::id),
@@ -112,8 +100,6 @@ namespace sql
 
             mt("node",
                mc("id", &Node::id, primary_key()),
-               mc("longitude", &Node::longitude),
-               mc("latitude", &Node::latitude),
                mc("offset_longitude", &Node::offsetLongitude),
                mc("offset_latitude", &Node::offsetLatitude),
                mc("chunk", &Node::chunk),

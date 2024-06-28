@@ -2,7 +2,7 @@ import sqlite3
 import re
 import tomllib
 import math
-from decimal import Decimal, getcontext
+from tqdm import tqdm
 
 NODE_CSV = "./data/nodes_bboxed.csv"
 EDGE_CSV = "./data/edges_bboxed.csv"
@@ -46,10 +46,8 @@ def offset_wkt_linestring_from_origin(points_str):
 
 
 class Node:
-    def __init__(self, id, longitude, latitude, offset_longitude, offset_latitude, chunk, n_edges_out, n_edges_in):
+    def __init__(self, id, offset_longitude, offset_latitude, chunk, n_edges_out, n_edges_in):
         self.id = id
-        self.longitude = longitude
-        self.latitude = latitude
         self.offset_longitude = offset_longitude
         self.offset_latitude = offset_latitude
         self.chunk = chunk
@@ -57,12 +55,10 @@ class Node:
         self.n_edges_in = n_edges_in
 
 class Chunk:
-    def __init__(self, id, grid_row, grid_col, left, top, left_offset, top_offset, size, n_nodes, n_edges):
+    def __init__(self, id, grid_row, grid_col, left_offset, top_offset, size, n_nodes, n_edges):
         self.id = id
         self.grid_row = grid_row
         self.grid_col = grid_col
-        self.left = left
-        self.top = top
         self.left_offset = left_offset
         self.top_offset = top_offset
         self.size = size
@@ -70,7 +66,7 @@ class Chunk:
         self.n_edges = n_edges
 
 class Edge:
-    def __init__(self, id, osm_id, source_node, target_node, length, foot, car_forward, car_backward, bike_forward, bike_backward, train, wkt_linestring, wkt_linestring_offset, chunk):
+    def __init__(self, id, osm_id, source_node, target_node, length, foot, car_forward, car_backward, bike_forward, bike_backward, train, wkt_linestring_offset, chunk):
         self.id = id
         self.osm_id = osm_id
         self.source_node = source_node
@@ -82,7 +78,6 @@ class Edge:
         self.bike_forward = bike_forward
         self.bike_backward = bike_backward
         self.train = train
-        self.wkt_linestring = wkt_linestring
         self.wkt_linestring_offset = wkt_linestring_offset
         self.chunk = chunk
 
@@ -96,21 +91,22 @@ edges: dict[str, Edge] = {}
 chunk_id = 0
 last_chunk_col = math.ceil(map_width / chunk_size)
 last_chunk_row = math.ceil(map_height / chunk_size)
-for col in range(0, last_chunk_col + 1):
+for col in tqdm(range(0, last_chunk_col + 1), "creating chunks"):
     for row in range(0, last_chunk_row + 1):
         # build chunk bbox
-        left = map_origin_lon + col * chunk_size
-        top = map_origin_lat - row * chunk_size
         left_offset = col * chunk_size
         top_offset= row * chunk_size
-        chunks[(row, col)] = Chunk(chunk_id, row, col, left, top, left_offset, top_offset, chunk_size, 0, 0)
+        chunks[(row, col)] = Chunk(chunk_id, row, col, left_offset, top_offset, chunk_size, 0, 0)
         chunks_id_to_row_col[chunk_id] = (row, col)
         chunk_id += 1
 
+#count nodes
+with(open(NODE_CSV)) as f:
+    n_nodes = sum(1 for _ in f) - 1
 #create nodes
 with open(NODE_CSV) as f:
     f.readline()  # Skip header
-    for line in f:
+    for line in tqdm(f, "creating nodes", n_nodes):
         parts = line.split(",")
         node_id = int(parts[0])
         lon = float(parts[1])
@@ -121,15 +117,25 @@ with open(NODE_CSV) as f:
         chunk_row = math.floor((offset_lat) / chunk_size)
         chunk_col = math.floor((offset_lon) / chunk_size)
         chunk_id = chunks[chunk_row, chunk_col].id
-        nodes[node_id] = Node(node_id, lon, lat, offset_lon, offset_lat, chunk_id, 0, 0)
+        nodes[node_id] = Node(node_id, offset_lon, offset_lat, chunk_id, 0, 0)
 
+#count edges
+with(open(EDGE_CSV)) as f:
+    n_edges = sum(1 for _ in f) - 1
 #create edges
+path_descriptor_to_int = {"Forbidden": 0, "Allowed": 1, "Residential": 2, "Tertiary": 3, "Secondary": 4, "Primary": 5, "Trunk": 6, "Motorway": 7, "Track": 8, "Lane": 8}
 with open(EDGE_CSV) as f:
     f.readline()  # Skip header
-    for line in f:
+    for line in tqdm(f, "creating edges", n_edges):
         m = re.match(r"(.+),\"LINESTRING\((.+)\)\"", line)
-        data = m.group(1).split(",") + [m.group(2), offset_wkt_linestring_from_origin(m.group(2)), 0]
+        data = m.group(1).split(",") + [offset_wkt_linestring_from_origin(m.group(2)), 0]
         edge = Edge(*data)
+        edge.foot = path_descriptor_to_int[edge.foot]
+        edge.car_forward = path_descriptor_to_int[edge.car_forward]
+        edge.car_backward = path_descriptor_to_int[edge.car_backward]
+        edge.bike_forward = path_descriptor_to_int[edge.bike_forward]
+        edge.bike_backward = path_descriptor_to_int[edge.bike_backward]
+        edge.train = path_descriptor_to_int[edge.train]
         if (int(edge.source_node) in nodes and int(edge.target_node) in nodes):
             edges[edge.id] = edge
 
@@ -158,13 +164,11 @@ for edge in edges.values():
 
 
 #insert chunks
-for chunk in chunks.values():
-    cur.execute("INSERT INTO chunk values (?,?,?,?,?,?,?,?,?,?)", (
+for chunk in tqdm(chunks.values(), "inserting chunks"):
+    cur.execute("INSERT INTO chunk values (?,?,?,?,?,?,?,?)", (
         chunk.id,
         chunk.grid_row,
         chunk.grid_col,
-        chunk.left,
-        chunk.top,
         chunk.left_offset,
         chunk.top_offset,
         chunk.size,
@@ -174,11 +178,9 @@ for chunk in chunks.values():
 con.commit()
 
 #insert nodes
-for node in nodes.values():
-    cur.execute("INSERT INTO node values (?,?,?,?,?,?,?,?)", (
+for node in tqdm(nodes.values(), "inserting nodes"):
+    cur.execute("INSERT INTO node values (?,?,?,?,?,?)", (
         node.id,
-        node.longitude,
-        node.latitude,
         node.offset_longitude,
         node.offset_latitude,
         node.chunk,
@@ -188,8 +190,8 @@ for node in nodes.values():
 con.commit()
 
 #insert edges
-for edge in edges.values():
-    cur.execute("INSERT INTO edge values (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+for edge in tqdm(edges.values(), "inserting egdes"):
+    cur.execute("INSERT INTO edge values (?,?,?,?,?,?,?,?,?,?,?,?,?)", (
         edge.id,
         edge.osm_id,
         edge.source_node,
@@ -201,7 +203,6 @@ for edge in edges.values():
         edge.bike_forward,
         edge.bike_backward,
         edge.train,
-        edge.wkt_linestring,
         edge.wkt_linestring_offset,
         edge.chunk
     ))

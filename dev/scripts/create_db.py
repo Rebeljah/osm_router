@@ -18,10 +18,10 @@ EDGE:
  osm_id: osm id can be used to lookup additional data on edge using osm API(?)
  source_node/target_node: id of start and end nodes (foreign keys).
  length: length in meters of the edge
- foot: one of 'Forbidden', 'Allowed'
- car_forward/backward: one of 'Forbidden', 'Residential', 'Tertiary', 'Secondary', 'Trunk', 'Motorway'
- bike_forward/backward: one of 'Forbidden', 'Allowed'
- train: one of 'Forbidden', 'Allowed'
+ foot: one of 'Forbidden', 'Allowed' mapped to 0 - 1
+ car_forward/backward: one of 'Forbidden', 'Residential', 'Tertiary', 'Secondary', 'Primary', 'Trunk', 'Motorway' mapped to 0, 2 - 7
+ bike_forward/backward: one of 'Forbidden', 'Allowed', 'Track', 'Lane' mapped to 0, 8 - 9
+ train: one of 'Forbidden', 'Allowed' mapped to 0 - 1
  wkt_linestring: lat/lon decimal degree point chain representing the path of the edge from source node to target node e.g: '-81.3862789 28.6238899, -81.3863183 28.6244381, ...'
 
 CHUNK:
@@ -33,8 +33,6 @@ sql_script = """
     -- Create node table with primary key and indexes
     CREATE TABLE IF NOT EXISTS node (
         id INTEGER PRIMARY KEY,
-        longitude REAL,
-        latitude REAL,
         offset_longitude REAL,
         offset_latitude REAL,
         chunk INTEGER,
@@ -42,8 +40,6 @@ sql_script = """
         n_edges_in INTEGER,
         FOREIGN KEY(chunk) REFERENCES chunk(id)
     );
-    CREATE INDEX IF NOT EXISTS idx_node_longitude ON node (longitude);
-    CREATE INDEX IF NOT EXISTS idx_node_latitude ON node (latitude);
     CREATE INDEX IF NOT EXISTS idx_node_offset_longitude ON node (offset_longitude);
     CREATE INDEX IF NOT EXISTS idx_node_offset_latitude ON node (offset_latitude);
     CREATE INDEX IF NOT EXISTS idx_node_chunk ON node (chunk);
@@ -55,13 +51,12 @@ sql_script = """
         source_node INTEGER,
         target_node INTEGER,
         length REAL,
-        foot TEXT,
-        car_forward TEXT,
-        car_backward TEXT,
-        bike_forward TEXT,
-        bike_backward TEXT,
-        train TEXT,
-        wkt_linestring TEXT,
+        foot INTEGER,
+        car_forward INTEGER,
+        car_backward INTEGER,
+        bike_forward INTEGER,
+        bike_backward INTEGER,
+        train INTEGER,
         wkt_linestring_offset TEXT,
         chunk INTEGER,
         FOREIGN KEY(source_node) REFERENCES node(id),
@@ -82,8 +77,6 @@ sql_script = """
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         grid_row INTEGER,
         grid_col INTEGER,
-        left REAL,
-        top REAL,
         left_offset REAL,
         top_offset REAL,
         size REAL,
@@ -92,8 +85,6 @@ sql_script = """
     );
     CREATE INDEX IF NOT EXISTS idx_chunk_grid_row ON chunk (grid_row);
     CREATE INDEX IF NOT EXISTS idx_chunk_grid_col ON chunk (grid_col);
-    CREATE INDEX IF NOT EXISTS idx_chunk_left ON chunk (left);
-    CREATE INDEX IF NOT EXISTS idx_chunk_top ON chunk (top);
     CREATE INDEX IF NOT EXISTS idx_chunk_left_offset ON chunk (left_offset);
     CREATE INDEX IF NOT EXISTS idx_chunk_top_offset ON chunk (top_offset);
 """
