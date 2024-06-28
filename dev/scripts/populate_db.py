@@ -3,6 +3,7 @@ import re
 import tomllib
 import math
 from tqdm import tqdm
+import copy
 
 NODE_CSV = "./data/nodes_bboxed.csv"
 EDGE_CSV = "./data/edges_bboxed.csv"
@@ -46,13 +47,13 @@ def offset_wkt_linestring_from_origin(points_str):
 
 
 class Node:
-    def __init__(self, id, offset_longitude, offset_latitude, chunk, n_edges_out, n_edges_in):
+    def __init__(self, id, offset_longitude, offset_latitude, chunk):
         self.id = id
         self.offset_longitude = offset_longitude
         self.offset_latitude = offset_latitude
         self.chunk = chunk
-        self.n_edges_out = n_edges_out
-        self.n_edges_in = n_edges_in
+        self.edges_out = []
+        self.edges_in = []
 
 class Chunk:
     def __init__(self, id, grid_row, grid_col, left_offset, top_offset, size, n_nodes, n_edges):
@@ -117,7 +118,7 @@ with open(NODE_CSV) as f:
         chunk_row = math.floor((offset_lat) / chunk_size)
         chunk_col = math.floor((offset_lon) / chunk_size)
         chunk_id = chunks[chunk_row, chunk_col].id
-        nodes[node_id] = Node(node_id, offset_lon, offset_lat, chunk_id, 0, 0)
+        nodes[node_id] = Node(node_id, offset_lon, offset_lat, chunk_id)
 
 #count edges
 with(open(EDGE_CSV)) as f:
@@ -154,14 +155,59 @@ for edge in edges.values():
 for edge in edges.values():
     src_node = nodes[int(edge.source_node)]
     tgt_node = nodes[int(edge.target_node)]
-    src_node.n_edges_out += 1
-    tgt_node.n_edges_in += 1
+    src_node.edges_out.append(edge.id)
+    tgt_node.edges_in.append(edge.id)
 
 #update edges with chunk id
 for edge in edges.values():
     src_node = nodes[int(edge.source_node)]
     edge.chunk = src_node.chunk
 
+#compression steps
+
+# remove nodes that only have 1 in edge and 1 out edge
+# where both edges have the same path descriptors
+deleted_nodes = []
+for node in nodes.values():
+    if len(node.edges_out) != 1 or len(node.edges_in) != 1:
+        continue # not a removable node
+    
+    in_edge = edges[node.edges_in[0]]
+    out_edge = edges[node.edges_out[0]]
+
+    # check the edges are same type of path
+    if (in_edge.foot != out_edge.foot or in_edge.car_forward != out_edge.car_forward or in_edge.car_backward != out_edge.car_backward or in_edge.bike_forward != out_edge.bike_forward or in_edge.bike_backward != out_edge.bike_backward or in_edge.train != out_edge.train):
+        continue
+
+    in_node = nodes[int(in_edge.source_node)]
+    mid_node = node
+    out_node = nodes[int(out_edge.target_node)]
+
+    assert int(in_edge.target_node) == mid_node.id and int(out_edge.source_node) == mid_node.id
+
+    combined_edge = copy.copy(in_edge)
+    combined_edge.target_node = out_node.id
+    out_node.edges_in[0] = combined_edge.id
+    combined_edge.wkt_linestring_offset += ", " + out_edge.wkt_linestring_offset
+    edges.pop(out_edge.id)
+    edges[in_edge.id] = combined_edge
+
+    combined_edge.length += out_edge.length
+
+    # update chunk node count
+    row, col = chunks_id_to_row_col[mid_node.chunk]
+    chunks[row, col].n_nodes -= 1
+    assert chunks[row, col].n_nodes >= 0
+
+    #update chunk edge count
+    row, col = chunks_id_to_row_col[int(out_edge.chunk)]
+    chunks[row, col].n_edges -= 1
+    assert chunks[row, col].n_edges >= 0
+
+    deleted_nodes.append(mid_node.id)
+
+for node_id in deleted_nodes:
+    nodes.pop(node_id)
 
 #insert chunks
 for chunk in tqdm(chunks.values(), "inserting chunks"):
@@ -184,8 +230,8 @@ for node in tqdm(nodes.values(), "inserting nodes"):
         node.offset_longitude,
         node.offset_latitude,
         node.chunk,
-        node.n_edges_out,
-        node.n_edges_in
+        len(node.edges_out),
+        len(node.edges_in)
     ))
 con.commit()
 
