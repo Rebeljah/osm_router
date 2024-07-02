@@ -1,6 +1,6 @@
 # data files and db are too large for github
-data/*
-db/*
+data/
+db/
 
 # python env
 .env/
@@ -8,4 +8,4 @@ db/*
 # vscode
 .vscode/
 
-dist/*
+dist/
