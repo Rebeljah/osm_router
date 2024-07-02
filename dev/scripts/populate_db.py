@@ -1,257 +1,251 @@
-import sqlite3
-import re
+from dataclasses import dataclass
+import decimal
 import tomllib
-import math
+from typing import Iterable
+import sqlite3
+from collections import defaultdict
+
 from tqdm import tqdm
-import copy
 
-NODE_CSV = "./data/nodes_bboxed.csv"
-EDGE_CSV = "./data/edges_bboxed.csv"
-DB_NAME = "./db/map.db"
-CONFIG_FILE = "./config/config.toml"
+decimal.getcontext().traps[decimal.FloatOperation] = True
+decimal.getcontext().prec = 25
 
-con = sqlite3.connect(DB_NAME, autocommit=False)
-cur = con.cursor()
-
-#load config data
-with open(CONFIG_FILE, "rb") as f:
-    config = tomllib.load(f)
+type ID = int
 
 
-map_width = config["map"]["bbox_right"] - config["map"]["bbox_left"]
-map_height = config["map"]["bbox_top"] - config["map"]["bbox_bottom"]
-chunk_size = config["map"]["chunk_size"]
-map_origin_lat = config["map"]["bbox_top"]
-map_origin_lon = config["map"]["bbox_left"]
+@dataclass
+class Point:
+    x: decimal.Decimal
+    y: decimal.Decimal
 
 
-def offset_wkt_linestring_from_origin(points_str):
-    points = points_str.strip().split(', ')
-    
-    offset_points = []
-    
-    for point in points:
-        lon, lat = map(float, point.split())
-        
-        # Calculate offsets
-        offset_lon = lon - map_origin_lon
-        offset_lat = map_origin_lat - lat
-        
-        offset_lon_str = format(offset_lon, '.15f')
-        offset_lat_str = format(offset_lat, '.15f')
-        
-        offset_point_str = f'{offset_lon_str} {offset_lat_str}'
-        offset_points.append(offset_point_str)
-
-    return ', '.join(offset_points)
-
-
-class Node:
-    def __init__(self, id, offset_longitude, offset_latitude, chunk):
-        self.id = id
-        self.offset_longitude = offset_longitude
-        self.offset_latitude = offset_latitude
-        self.chunk = chunk
-        self.edges_out = []
-        self.edges_in = []
-
-class Chunk:
-    def __init__(self, id, grid_row, grid_col, left_offset, top_offset, size, n_nodes, n_edges):
-        self.id = id
-        self.grid_row = grid_row
-        self.grid_col = grid_col
-        self.left_offset = left_offset
-        self.top_offset = top_offset
-        self.size = size
-        self.n_nodes = n_nodes
-        self.n_edges = n_edges
-
+@dataclass
 class Edge:
-    def __init__(self, id, osm_id, source_node, target_node, length, foot, car_forward, car_backward, bike_forward, bike_backward, train, wkt_linestring_offset, chunk):
-        self.id = id
-        self.osm_id = osm_id
-        self.source_node = source_node
-        self.target_node = target_node
-        self.length = length
-        self.foot = foot
-        self.car_forward = car_forward
-        self.car_backward = car_backward
-        self.bike_forward = bike_forward
-        self.bike_backward = bike_backward
-        self.train = train
-        self.wkt_linestring_offset = wkt_linestring_offset
-        self.chunk = chunk
+    # SQL COLUMNS
+    osm_id: ID
+    chunk_id: str
+    source_node_id: ID
+    target_node_id: ID
+    path_length_meters: decimal.Decimal
+    path_foot: int
+    path_car_fwd: int
+    path_car_bwd: int
+    path_bike_fwd: int
+    path_bike_bwd: int
+    path_train: int
+    path_offset_points: list[Point]
+
+    def sql_tuple(self) -> tuple:
+        return (
+            None,
+            self.osm_id,
+            self.chunk_id,
+            self.source_node_id,
+            self.target_node_id,
+            str(self.path_length_meters),
+            self.path_foot,
+            self.path_car_fwd,
+            self.path_car_bwd,
+            self.path_bike_fwd,
+            self.path_bike_bwd,
+            self.path_train,
+            ','.join(str(point.x) + ' ' + str(point.y) for point in self.path_offset_points)
+        )
 
 
-chunks: dict[tuple[int, int], Chunk] = {}
-chunks_id_to_row_col: dict[int, tuple[int, int]] = {}
-nodes: dict[int, Node] = {}
-edges: dict[str, Edge] = {}
+@dataclass
+class Node:
+    # SQL COLUMNS
+    id: ID
+    chunk_id: str
+    offset_lon: decimal.Decimal
+    offset_lat: decimal.Decimal
+    num_out_edges: int
+    num_in_edges: int
 
-#create chunks
-chunk_id = 0
-last_chunk_col = math.ceil(map_width / chunk_size)
-last_chunk_row = math.ceil(map_height / chunk_size)
-for col in tqdm(range(0, last_chunk_col + 1), "creating chunks"):
-    for row in range(0, last_chunk_row + 1):
-        # build chunk bbox
-        left_offset = col * chunk_size
-        top_offset= row * chunk_size
-        chunks[(row, col)] = Chunk(chunk_id, row, col, left_offset, top_offset, chunk_size, 0, 0)
-        chunks_id_to_row_col[chunk_id] = (row, col)
-        chunk_id += 1
+    def sql_tuple(self) -> tuple:
+        return (
+            self.id,
+            self.chunk_id,
+            str(self.offset_lon),
+            str(self.offset_lat),
+            self.num_out_edges,
+            self.num_in_edges
+        )
 
-#count nodes
-with(open(NODE_CSV)) as f:
-    n_nodes = sum(1 for _ in f) - 1
-#create nodes
-with open(NODE_CSV) as f:
-    f.readline()  # Skip header
-    for line in tqdm(f, "creating nodes", n_nodes):
-        parts = line.split(",")
-        node_id = int(parts[0])
-        lon = float(parts[1])
-        lat = float(parts[2])
-        # latitude and longitude is offset to map origin (topleft of area)
-        offset_lat = map_origin_lat - lat
-        offset_lon = lon - map_origin_lon
-        chunk_row = math.floor((offset_lat) / chunk_size)
-        chunk_col = math.floor((offset_lon) / chunk_size)
-        chunk_id = chunks[chunk_row, chunk_col].id
-        nodes[node_id] = Node(node_id, offset_lon, offset_lat, chunk_id)
 
-#count edges
-with(open(EDGE_CSV)) as f:
-    n_edges = sum(1 for _ in f) - 1
-#create edges
+@dataclass
+class Chunk:
+    # SQL COLUMNS
+    id: str
+    row: int
+    col: int
+    offset_lat_top: decimal.Decimal
+    offset_lon_left: decimal.Decimal
+    num_nodes: int
+    num_edges: int
+
+    def sql_tuple(self) -> tuple:
+        return (
+            self.id,
+            self.row,
+            self.col,
+            str(self.offset_lat_top),
+            str(self.offset_lon_left),
+            self.num_nodes,
+            self.num_edges
+        )
+
+
+@dataclass
+class Rect:
+    top: decimal.Decimal
+    left: decimal.Decimal
+    width: decimal.Decimal
+    height: decimal.Decimal
+
+
+def chunk_id(row, col) -> str:
+    return f"{row},{col}"
+
+
+def chunk_grid_pos(point: Point, chunk_size: decimal.Decimal) -> tuple[int, int]:
+    # returns (row, col)
+    return (
+        int((point.y / chunk_size).to_integral_value(decimal.ROUND_FLOOR)),
+        int((point.x / chunk_size).to_integral_value(decimal.ROUND_FLOOR))
+    )
+
+
 path_descriptor_to_int = {"Forbidden": 0, "Allowed": 1, "Residential": 2, "Tertiary": 3, "Secondary": 4, "Primary": 5, "Trunk": 6, "Motorway": 7, "Track": 8, "Lane": 8}
-with open(EDGE_CSV) as f:
-    f.readline()  # Skip header
-    for line in tqdm(f, "creating edges", n_edges):
-        m = re.match(r"(.+),\"LINESTRING\((.+)\)\"", line)
-        data = m.group(1).split(",") + [offset_wkt_linestring_from_origin(m.group(2)), 0]
-        edge = Edge(*data)
-        edge.foot = path_descriptor_to_int[edge.foot]
-        edge.car_forward = path_descriptor_to_int[edge.car_forward]
-        edge.car_backward = path_descriptor_to_int[edge.car_backward]
-        edge.bike_forward = path_descriptor_to_int[edge.bike_forward]
-        edge.bike_backward = path_descriptor_to_int[edge.bike_backward]
-        edge.train = path_descriptor_to_int[edge.train]
-        if (int(edge.source_node) in nodes and int(edge.target_node) in nodes):
-            edges[edge.id] = edge
 
-#update chunks with number of nodes
-for node in nodes.values():
-    row, col = chunks_id_to_row_col[node.chunk]
-    chunks[row, col].n_nodes += 1
 
-#update chunks with number of edges
-for edge in edges.values():
-    src_node = nodes[int(edge.source_node)]
-    row, col = chunks_id_to_row_col[src_node.chunk]
-    chunks[row, col].n_edges += 1
+def parse_wkt_linestring(wkt: str) -> list[Point]:
+    #  from '"LINESTRING(-81.3862789 28.6238899, -81.3863183 28.6244381)"'
+    points = wkt.strip()[12:-2].split(', ')
+    return [Point(*map(decimal.Decimal, point.split())) for point in points]
 
-#update nodes with edges in/out
-for edge in edges.values():
-    src_node = nodes[int(edge.source_node)]
-    tgt_node = nodes[int(edge.target_node)]
-    src_node.edges_out.append(edge.id)
-    tgt_node.edges_in.append(edge.id)
 
-#update edges with chunk id
-for edge in edges.values():
-    src_node = nodes[int(edge.source_node)]
-    edge.chunk = src_node.chunk
+def offset_edge_path(path: list[Point], map_bbox: Rect) -> None:
+    for point in path:
+        point.x -= map_bbox.left
+        point.y = map_bbox.top - point.y
 
-#compression steps
 
-# remove nodes that only have 1 in edge and 1 out edge
-# where both edges have the same path descriptors
-deleted_nodes = []
-for node in nodes.values():
-    if len(node.edges_out) != 1 or len(node.edges_in) != 1:
-        continue # not a removable node
+def chunk_generator(chunk_size: decimal.Decimal, map_bbox: Rect, chunk_num_nodes, chunk_num_edges):
+    n_rows = int((map_bbox.height / chunk_size).to_integral_value(decimal.ROUND_UP))
+    n_cols = int((map_bbox.width / chunk_size).to_integral_value(decimal.ROUND_UP))
+    for row in tqdm(range(n_rows), "making and inserting chunk grid rows"):
+        for col in range(n_cols):
+            yield Chunk(chunk_id(row, col), row, col, row * chunk_size, col * chunk_size, chunk_num_nodes[chunk_id(row, col)], chunk_num_edges[chunk_id(row, col)])
+
+
+def node_generator(map_bbox: Rect, chunk_size: decimal.Decimal, node_num_out_edges, node_num_in_edges, chunk_num_nodes):
+    with open("./data/nodes_bboxed.csv") as f:
+        n_nodes = sum(1 for _ in f) - 1
+
+    with open("./data/nodes_bboxed.csv") as f:
+        f.readline()  # skip columns headers
+        for line in tqdm(f, 'making and inserting nodes', n_nodes):
+            cols = line.split(',')
+            node = Node(
+                int(cols[0]),
+                '',
+                decimal.Decimal(cols[1]),
+                decimal.Decimal(cols[2]),
+                0,
+                0
+            )
+
+            # offset node lat/lon coordinates
+            node.offset_lat = map_bbox.top - node.offset_lat
+            node.offset_lon = node.offset_lon - map_bbox.left
+
+            # set chunk id and increment chunk num_nodes
+            row, col = chunk_grid_pos(Point(node.offset_lon, node.offset_lat), chunk_size)
+
+            node.chunk_id = chunk_id(row, col)
+            node.num_out_edges = node_num_out_edges[node.id]
+            node.num_in_edges = node_num_in_edges[node.id]
+
+            chunk_num_nodes[chunk_id(row, col)] += 1
+
+            yield node
+
+
+def edge_generator(chunk_size: decimal.Decimal, map_bbox: Rect, node_num_out_edges, node_num_in_edges, chunk_num_edges):
+    with open("./data/edges_bboxed.csv") as f:
+        n_edges = sum(1 for _ in f) - 1
+
+    with open("./data/edges_bboxed.csv") as f:
+        f.readline()  # skip columns headers
+        for line in tqdm(f, 'making and inserting edges', n_edges):
+            line = line.strip()
+            wkt_start = line.find(',"L')
+            cols = line[:wkt_start].split(',')[1:]  # skip id column (1st col)
+            path = parse_wkt_linestring(line[wkt_start+1:])
+            offset_edge_path(path, map_bbox)
+
+            # edge belongs to chunk where path starts
+            chunk_row, chunk_col = chunk_grid_pos(path[0], chunk_size)
+
+            edge = Edge(
+                int(cols[0]),
+                chunk_id(chunk_row, chunk_col),
+                int(cols[1]),
+                int(cols[2]),
+                decimal.Decimal(cols[3]),
+                path_descriptor_to_int[cols[4]],
+                path_descriptor_to_int[cols[5]],
+                path_descriptor_to_int[cols[6]],
+                path_descriptor_to_int[cols[7]],
+                path_descriptor_to_int[cols[8]],
+                path_descriptor_to_int[cols[9]],
+                path,
+            )
+
+            # update node number of edges in/out
+            node_num_in_edges[edge.target_node_id] += 1
+            node_num_out_edges[edge.source_node_id] += 1
+
+            # update chunk num_edges
+            chunk_num_edges[chunk_id(chunk_row, chunk_col)] += 1
+
+            yield edge
+
+
+def insert_rows(tbl_name: str, rows: Iterable[Chunk | Node | Edge], con: sqlite3.Connection) -> None:
+    cur = con.cursor()
+
+    for row in rows:
+        values = row.sql_tuple()
+        stmnt = f'INSERT INTO {tbl_name} VALUES({",".join(["?"]*len(values))})'
+        cur.execute(stmnt, values)
+
+    con.commit()
+
+
+def main():
+    with open('./config/config.toml', 'rb') as f:
+        config = tomllib.load(f, parse_float=decimal.Decimal)
     
-    in_edge = edges[node.edges_in[0]]
-    out_edge = edges[node.edges_out[0]]
+    chunk_size = config['map']['chunk_size']
 
-    # check the edges are same type of path
-    if (in_edge.foot != out_edge.foot or in_edge.car_forward != out_edge.car_forward or in_edge.car_backward != out_edge.car_backward or in_edge.bike_forward != out_edge.bike_forward or in_edge.bike_backward != out_edge.bike_backward or in_edge.train != out_edge.train):
-        continue
+    map_bbox = Rect(
+        config['map']['bbox_top'],
+        config['map']['bbox_left'],
+        config['map']['bbox_right'] - config['map']['bbox_left'],
+        config['map']['bbox_top'] - config['map']['bbox_bottom']
+    )
+    
+    chunk_num_edges = defaultdict(int)
+    chunk_num_nodes = defaultdict(int)
+    node_num_in_edges = defaultdict(int)
+    node_num_out_edges = defaultdict(int)
 
-    in_node = nodes[int(in_edge.source_node)]
-    mid_node = node
-    out_node = nodes[int(out_edge.target_node)]
+    with sqlite3.connect("./db/map.db") as con:
+        insert_rows('edge', edge_generator(chunk_size, map_bbox, node_num_out_edges, node_num_in_edges, chunk_num_edges), con)
+        insert_rows('node', node_generator(map_bbox, chunk_size, node_num_out_edges, node_num_in_edges, chunk_num_nodes), con)
+        insert_rows('chunk', chunk_generator(chunk_size, map_bbox, chunk_num_nodes, chunk_num_edges), con)
 
-    assert int(in_edge.target_node) == mid_node.id and int(out_edge.source_node) == mid_node.id
-
-    combined_edge = copy.copy(in_edge)
-    combined_edge.target_node = out_node.id
-    out_node.edges_in[0] = combined_edge.id
-    combined_edge.wkt_linestring_offset += ", " + out_edge.wkt_linestring_offset
-    edges.pop(out_edge.id)
-    edges[in_edge.id] = combined_edge
-
-    combined_edge.length += out_edge.length
-
-    # update chunk node count
-    row, col = chunks_id_to_row_col[mid_node.chunk]
-    chunks[row, col].n_nodes -= 1
-    assert chunks[row, col].n_nodes >= 0
-
-    #update chunk edge count
-    row, col = chunks_id_to_row_col[int(out_edge.chunk)]
-    chunks[row, col].n_edges -= 1
-    assert chunks[row, col].n_edges >= 0
-
-    deleted_nodes.append(mid_node.id)
-
-for node_id in deleted_nodes:
-    nodes.pop(node_id)
-
-#insert chunks
-for chunk in tqdm(chunks.values(), "inserting chunks"):
-    cur.execute("INSERT INTO chunk values (?,?,?,?,?,?,?,?)", (
-        chunk.id,
-        chunk.grid_row,
-        chunk.grid_col,
-        chunk.left_offset,
-        chunk.top_offset,
-        chunk.size,
-        chunk.n_nodes,
-        chunk.n_edges
-    ))
-con.commit()
-
-#insert nodes
-for node in tqdm(nodes.values(), "inserting nodes"):
-    cur.execute("INSERT INTO node values (?,?,?,?,?,?)", (
-        node.id,
-        node.offset_longitude,
-        node.offset_latitude,
-        node.chunk,
-        len(node.edges_out),
-        len(node.edges_in)
-    ))
-con.commit()
-
-#insert edges
-for edge in tqdm(edges.values(), "inserting egdes"):
-    cur.execute("INSERT INTO edge values (?,?,?,?,?,?,?,?,?,?,?,?,?)", (
-        edge.id,
-        edge.osm_id,
-        edge.source_node,
-        edge.target_node,
-        edge.length,
-        edge.foot,
-        edge.car_forward,
-        edge.car_backward,
-        edge.bike_forward,
-        edge.bike_backward,
-        edge.train,
-        edge.wkt_linestring_offset,
-        edge.chunk
-    ))
-con.commit()
-
-con.close()
+main()
