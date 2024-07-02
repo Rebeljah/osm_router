@@ -7,8 +7,6 @@
 
 using std::vector;
 
-typedef int NodeID;
-
 struct Node
 {
     sql::Node data;

@@ -2,18 +2,14 @@
 
 #include <SFML/Graphics.hpp>
 
-typedef double Degrees;
-typedef double Pixels;
-typedef double Meters;
-
-Meters degreesToMeters(Degrees x)
+double degreesToMeters(double x)
 {
-    return x * 110773;
+    return x * 110773;  // value based on average conversion for latitude of map area 
 }
 
-Degrees metersToDegrees(Meters x)
+double metersToDegrees(double x)
 {
-    return x / 110773;
+    return x / 110773;  // value based on average conversion for latitude of map area
 }
 
 /*
@@ -23,11 +19,11 @@ let p and d such that p px = d deg. Therefore, 1 deg = (p/d) px, and
 x deg = x * (p/d) px.
 
 @param x: input decimal degrees value
-@param pd: ratio of pixels per degree
+@param ppd: ratio of pixels per degree
 */
-Pixels degreesToPixels(Degrees x, double pd)
+double degreesToPixels(double x, double ppd)
 {
-    return x * pd;
+    return x * ppd;
 }
 
 /*
@@ -37,61 +33,31 @@ let d and p such that p px = d deg. Therefore, 1 px = (d/p) deg and
 x px = x * (d/p) deg
 
 @param x: input pixel value
-@param dp: ratio of degrees per pixel
+@param dpp: ratio of degrees per pixel
 */
-Degrees pixelsToDegrees(Pixels x, double dp)
+double pixelsToDegrees(double x, double dpp)
 {
-    return x * dp;
+    return x * dpp;
 }
 
-struct DisplayRect : public sf::Rect<Pixels>
+template <typename T>
+struct Rectangle : public sf::Rect<T>
 {
-    DisplayRect(Pixels top, Pixels left, Pixels w, Pixels h) : sf::Rect<Pixels>(left, top, w, h) {}
-    DisplayRect() : sf::Rect<Pixels>(0, 0, 0, 0) {}
-    Pixels right() const
+    Rectangle() {}
+    Rectangle(T top, T left, T width, T height) : sf::Rect<T>(left, top, width, height) {}
+
+    T right() const
     {
-        return left + width;
+        return this->left + this->width;
     }
-    Pixels bottom() const
+
+    T bottom() const
     {
-        return top + height;
+        return this->top + this->height;
+    }
+
+    Rectangle<T> scale(const T &ratio) const
+    {
+        return Rectangle<T>(this->top * ratio, this->left * ratio, this->width * ratio, this->height * ratio);
     }
 };
-
-struct GeoRect : public sf::Rect<Degrees>
-{
-    GeoRect(Degrees top, Degrees left, Degrees w, Degrees h) : sf::Rect<Degrees>(left, top, w, h) {}
-    GeoRect() : sf::Rect<Degrees>(0, 0, 0, 0) {}
-    Degrees right() const
-    {
-        return left + width;
-    }
-    Degrees bottom() const
-    {
-        return top + height;
-    }
-};
-
-/*
-Convert a geo rect in decimal degrees to a pixel rect given a conversion ratio.
-@param r: input rect
-@param pd: ratio of pixels per degree
-*/
-DisplayRect geoRectToDisplayRect(GeoRect r, double pd)
-{
-    auto f = [pd](Pixels x)
-    { return degreesToPixels(x, pd); };
-    return DisplayRect(f(r.top), f(r.left), f(r.width), f(r.height));
-}
-
-/*
-Convert a display rect in pixels to a georect in decimal degrees given a conversion ratio.
-@param r: input rect
-@param dp: ratio of degrees per pixel
-*/
-GeoRect displayRectToGeoRect(DisplayRect r, double dp)
-{
-    auto f = [dp](Pixels x)
-    { return pixelsToDegrees(x, dp); };
-    return GeoRect(f(r.top), f(r.left), f(r.width), f(r.height));
-}

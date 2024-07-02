@@ -33,6 +33,7 @@ struct PointPath
 
     PointPath(string wktLinestring)
     {
+        // string "4.3 1.2, 4.4 1.0," -> vector { {4.3, 1.2}, {4.4, 1.0} }
         for (auto part : splitString(wktLinestring, ","))
         {
             auto lonLat = splitString(part, " ");
@@ -44,12 +45,19 @@ struct PointPath
 
     PointPath() {}
 
-    GeoRect getBoundingBox()
+    /*
+    Get a lat / lon rectangle that bounds the path. The left and right will be the min and max
+    longitude respectively, and the top and bottom will be, respectively, the min and max
+    latitude. (min latitude is at the top because the lat,lon is stored as offset
+    from the top left of the map area)
+    @returns The smallest rectangle that bounds the entire path.
+    */
+    Rectangle<float> getGeoBoundingBox()
     {
-        double minLon = 1000000;
-        double maxLon = -1000000;
-        double minLat = 1000000;
-        double maxLat = -1000000;
+        float minLon = 1000000;
+        float maxLon = -1000000;
+        float minLat = 1000000;
+        float maxLat = -1000000;
 
         for (const auto &[lon, lat] : points)
         {
@@ -63,7 +71,7 @@ struct PointPath
                 maxLat = lat;
         }
 
-        return GeoRect(minLat, minLon, maxLon - minLon, maxLat - minLat);
+        return Rectangle<float>(minLat, minLon, maxLon - minLon, maxLat - minLat);
     }
 };
 
@@ -75,16 +83,15 @@ struct Edge
 
     Edge(sql::Edge data) : data(data), path(data.pathOffsetPoints)
     {
-        color = sf::Color::Magenta;
+        // set the color of the edge based on the type of path
+        // for example: highways can be colored red, while bike/hiking only paths can
+        // be green
+        color = sf::Color::Blue;
 
         if ((PathDescriptor)data.pathFoot != PathDescriptor::Forbidden || (PathDescriptor)data.pathBikeFwd != PathDescriptor::Forbidden || (PathDescriptor)data.pathBikeBwd != PathDescriptor::Forbidden)
         {
-            color = sf::Color::Green;
-        }
-
-        if ((PathDescriptor)data.pathCarFwd != PathDescriptor::Forbidden || (PathDescriptor)data.pathCarBwd != PathDescriptor::Forbidden)
-        {
-            color = color = sf::Color::Blue;
+            if ((PathDescriptor)data.pathCarFwd == PathDescriptor::Forbidden && (PathDescriptor)data.pathCarBwd == PathDescriptor::Forbidden)
+                color = sf::Color::Green;
         }
 
         if ((PathDescriptor)data.pathCarFwd == PathDescriptor::Motorway || (PathDescriptor)data.pathCarBwd == PathDescriptor::Motorway)

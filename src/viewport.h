@@ -10,14 +10,16 @@ enum class PanDirection
     Right,
 };
 
-class Viewport : public DisplayRect
+class Viewport : public Rectangle<float>
 {
 public:
     Viewport() {}
 
-    Viewport(Pixels w, Pixels h, Pixels mapWidth, Pixels mapHeight) : DisplayRect(0, 0, w, h)
+    Viewport(float w, float h, float mapWidth, float mapHeight) : Rectangle<float>(0, 0, w, h)
     {
-        this->mapBounds = DisplayRect(0, 0, mapWidth, mapHeight);
+        // this rect defines the area that the viewport is bound to
+        // the user will not be able to move the viewport out of this area
+        this->boundingArea = Rectangle<float>(0, 0, mapWidth, mapHeight);
     }
 
     Viewport &operator=(const Viewport &other)
@@ -26,10 +28,16 @@ public:
         this->left = other.left;
         this->width = other.width;
         this->height = other.height;
-        this->mapBounds = other.mapBounds;
+        this->boundingArea = other.boundingArea;
         return *this;
     }
 
+    /*
+    This function can be used to start or stop the viewport moving in a certain
+    direction.
+    @param direction: One of Up,Down,Left,Right
+    @param isPanning: true or false to turn on or off panning in the given direction
+    */
     void controlPanning(PanDirection direction, bool isPanning)
     {
         switch (direction)
@@ -49,63 +57,62 @@ public:
         }
     }
 
+    /*
+    This should be called on each frame to move the viewport around.
+    @param deltaTime: Time elapsed since the last frame, ensures smooth movement
+     with varying framerates.
+    */
     void update(float deltaTime)
     {
-        double delta = panVelocity * deltaTime;
-        bool panned = false;
+        float nPixels = panVelocity * deltaTime;
 
         if (isPanningUp ^ isPanningDown) // one or the other but not both
         {
             if (isPanningUp)
             {
-                top -= delta;
+                top -= nPixels; // move up
             }
 
             if (isPanningDown)
             {
-                top += delta;
+                top += nPixels; // move down
             }
-
-            panned = true;
         }
 
         if (isPanningLeft ^ isPanningRight) // stops from trying to pan left and right at same time
         {
             if (isPanningLeft)
             {
-                left -= delta;
+                left -= nPixels; // move left
             }
 
             if (isPanningRight)
             {
-                left += delta;
+                left += nPixels; // move right
             }
-
-            panned = true;
         }
 
-        // check collision with map boundaries
-        if (left < mapBounds.left)
+        // check collision with pannable area boundaries
+        if (left < boundingArea.left)
         {
-            left = mapBounds.left;
+            left = boundingArea.left;
         }
-        else if (right() > mapBounds.right())
+        else if (right() > boundingArea.right())
         {
-            left = mapBounds.right() - width;
+            left = boundingArea.right() - width;
         }
-        if (top < mapBounds.top)
+        if (top < boundingArea.top)
         {
-            top = mapBounds.top;
+            top = boundingArea.top;
         }
-        else if (bottom() > mapBounds.bottom())
+        else if (bottom() > boundingArea.bottom())
         {
-            top = mapBounds.bottom() - height;
+            top = boundingArea.bottom() - height;
         }
     }
 
 private:
-    Pixels chunkSize;
-    DisplayRect mapBounds;
+    Rectangle<float> boundingArea;
 
     // panning controls
     int panVelocity = 450; // pixels per second

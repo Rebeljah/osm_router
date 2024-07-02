@@ -10,8 +10,8 @@ namespace sql
         std::string id;
         int row;
         int col;
-        double offsetLatTop;
-        double offsetLonLeft;
+        float offsetLatTop;
+        float offsetLonLeft;
         int numNodes;
         int numEdges;
     };

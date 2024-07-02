@@ -7,6 +7,10 @@ using std::vector;
 using std::string;
 
 // code adapted from: https://www.geeksforgeeks.org/unordered-set-of-pairs-in-c-with-examples/#
+/*
+This type can be passed into types that require hashing pairs such as unordered maps or unordered sets
+example usage: unordered_set<pair<string, string>, PairHasher<string>> foo;
+*/
 template <typename T>
 struct PairHasher
 {

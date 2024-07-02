@@ -7,34 +7,33 @@
 #include "chunk.h"
 #include "chunk_sprite.h"
 
-
-toml::v3::ex::parse_result CFG = toml::parse_file("./config/config.toml");
-
 class App
 {
 public:
     App() : window(sf::VideoMode(800, 800), "OSM Router"), chunkSpriteLoader()
     {
-        Degrees mapTop = *CFG["map"]["bbox_top"].value<double>();
-        Degrees mapLeft = *CFG["map"]["bbox_left"].value<double>();
-        Degrees mapBottom = *CFG["map"]["bbox_bottom"].value<double>();
-        Degrees mapRight = *CFG["map"]["bbox_right"].value<double>();
-        Degrees viewportW = *CFG["viewport"]["default_w"].value<double>();
-        Degrees viewportH = *CFG["viewport"]["default_h"].value<double>();
-        Degrees chunkSize = *CFG["map"]["chunk_size"].value<double>();
+        using Degree = double;
+        Degree mapTop = *config["map"]["bbox_top"].value<double>();
+        Degree mapLeft = *config["map"]["bbox_left"].value<double>();
+        Degree mapBottom = *config["map"]["bbox_bottom"].value<double>();
+        Degree mapRight = *config["map"]["bbox_right"].value<double>();
+        Degree viewportW = *config["viewport"]["default_w"].value<double>();
+        Degree viewportH = *config["viewport"]["default_h"].value<double>();
+        Degree chunkSize = *config["map"]["chunk_size"].value<double>();
 
-        pd = 800 / viewportW;
+        // ratio of pixels per degree
+        ppd = 800 / viewportW;
 
         viewport = Viewport(
-            degreesToPixels(viewportW, pd),
-            degreesToPixels(viewportH, pd),
-            degreesToPixels(mapRight - mapLeft, pd),
-            degreesToPixels(mapTop - mapBottom, pd));
+            degreesToPixels(viewportW, ppd),
+            degreesToPixels(viewportH, ppd),
+            degreesToPixels(mapRight - mapLeft, ppd),
+            degreesToPixels(mapTop - mapBottom, ppd));
         
         chunkLoader.start(&storage, chunkSize);
-        chunkSpriteLoader.init(&chunkLoader, degreesToPixels(chunkSize, pd), pd);
+        chunkSpriteLoader.init(&chunkLoader, degreesToPixels(chunkSize, ppd), ppd);
 
-        window.setFramerateLimit(*CFG["graphics"]["framerate"].value<int>());
+        window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
     }
 
     ~App()
@@ -63,23 +62,23 @@ private:
             // pan the map around by holding arrow keys
             if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
             {
-                bool wasPressed = event.type == sf::Event::KeyPressed;
+                bool isPressed = event.type == sf::Event::KeyPressed;
 
                 if (event.key.code == sf::Keyboard::Key::Up)
                 {
-                    viewport.controlPanning(PanDirection::Up, wasPressed);
+                    viewport.controlPanning(PanDirection::Up, isPressed);
                 }
                 else if (event.key.code == sf::Keyboard::Key::Down)
                 {
-                    viewport.controlPanning(PanDirection::Down, wasPressed);
+                    viewport.controlPanning(PanDirection::Down, isPressed);
                 }
                 else if (event.key.code == sf::Keyboard::Key::Left)
                 {
-                    viewport.controlPanning(PanDirection::Left, wasPressed);
+                    viewport.controlPanning(PanDirection::Left, isPressed);
                 }
                 else if (event.key.code == sf::Keyboard::Key::Right)
                 {
-                    viewport.controlPanning(PanDirection::Right, wasPressed);
+                    viewport.controlPanning(PanDirection::Right, isPressed);
                 }
             }
         }
@@ -87,6 +86,8 @@ private:
 
     void update()
     {
+        // deltatime is the time elapsed since the last update
+        // it is needed to smoothly update movement independent of framerate
         float deltaTime = clock.restart().asSeconds();
         viewport.update(deltaTime);
     }
@@ -95,36 +96,40 @@ private:
     {
         window.clear();
 
-        Pixels chunkSize = degreesToPixels(*CFG["map"]["chunk_size"].value<double>(), pd);
+        // determine the range of chunks that are inside of the viewport to render
+        float chunkSize = degreesToPixels(*config["map"]["chunk_size"].value<double>(), ppd);
         int chunkRowTop = int(viewport.top / chunkSize);
         int chunkRowBottom = int(viewport.bottom() / chunkSize);
         int chunkColLeft = int(viewport.left / chunkSize);
         int chunkColRight = int(viewport.right() / chunkSize);
 
-        for (int row = chunkRowTop - 4; row <= chunkRowBottom + 4; ++row)
+        for (int row = chunkRowTop - 2; row <= chunkRowBottom + 2; ++row)
         {
-            for (int col = chunkColLeft - 4; col <= chunkColRight + 4; ++col)
-            {
+            for (int col = chunkColLeft - 2; col <= chunkColRight + 2; ++col)
+            {   
+                // prevents rendering chunks that are out of bounds
                 // TODO check right and bottom bound also
                 if (row < 0 || col < 0)
                 {
                     continue;
                 }
 
+                // retrieve the chunk sprite if it is already rendered
+                // if sprite is not rendered, the option will not have a value, so
+                // the loop continues to the next chunk
                 auto spriteOpt = chunkSpriteLoader.get(row, col);
-
                 if (!spriteOpt.has_value())
                     continue;
 
-                ChunkSprite *pSprite = *spriteOpt;
+                ChunkSprite &sprite = **spriteOpt;
 
                 // skip drawing chunks that are buffered but not in the viewport
                 if (row < chunkRowTop || row > chunkRowBottom || col < chunkColLeft || col > chunkColRight)
                     continue;
 
                 // draw chunk
-                pSprite->setPosition(pSprite->rect.left - viewport.left, pSprite->rect.top - viewport.top);
-                window.draw(*pSprite);
+                sprite.setPosition(sprite.rect.left - viewport.left, sprite.rect.top - viewport.top);
+                window.draw(sprite);
             }
         }
         window.display();
@@ -136,7 +141,8 @@ private:
     Viewport viewport;
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
-    double pd;
+    double ppd;
 
     sql::Storage storage = sql::loadStorage("./db/map.db");
+    toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
 };
