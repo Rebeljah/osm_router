@@ -1,3 +1,5 @@
+### Proposal Gdoc:
+- https://docs.google.com/document/d/1JEEAZYAosy_jTsWOz1q2IIQ6D6_zGJDuMbgMNqxPP5w/edit?usp=sharing
 ### Links to download CSV data for building the database:
 - edges: https://drive.google.com/file/d/1b_NCY28mntp-kgoj-be7G_XBpvjarWO5/view?usp=drive_link
 - nodes: https://drive.google.com/file/d/1fsxVeypoj_RyhSubA9on3KOscupBkYcy/view?usp=drive_link
