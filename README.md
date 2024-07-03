@@ -21,10 +21,23 @@
 - Configure your build tool to also include the packages in the include/ directory, the header files for tomlplusplus and sqlite_orm live here.
 - When compiling, you need to link all of the required libraries. Example build command: `gcc -std=c++17 -g src/*.cpp -o dist/app.out -lsfml-graphics -lsfml-window -lsfml-system -lsqlite3 -Iinclude/`. This command will link all of the required SFML components, link sqlite3, and add all of the packages in the `include/` directory.
 ## creating the database
-- There is a Makefile in the project root that defines tasks for building the DB. Since the CSV data linked above is already filtered to Florida only, you do not need to run the `filter_csv` command.
+- Below is an exmaple Makefile that defines tasks for building the DB. Since the CSV data linked above is already filtered to Florida only, you do not need to run the `filter_csv` command.
 1. Create the db by running the `create_db` make command
 2. Populate the db by running the `fill_db` command (make take ~15 minutes)
 - after these steps, the db directory should contain a sqlite database that is ready to use by the app.
+```Makefile
+osm4routing: # converts pbf to nodes.csv and edges.csv
+	cd ./data && osm4routing us-south-latest.osm.pbf
+
+filter_csv: # filter nodes/edges to the lat/lon bbox defined in the py file
+	python ./dev/scripts/filter_to_bbox.py
+
+create_db:
+	python ./dev/scripts/create_db.py
+
+fill_db:  # fill the database with node/edge data from the CSV's defined in the populate_db.py file
+	python ./dev/scripts/populate_db.py
+```
 
 # Technical diagrams
 ## chunking and viewport
