@@ -9,3 +9,6 @@ db/
 .vscode/
 
 dist/
+
+# build
+Makefile
