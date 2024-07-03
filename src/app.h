@@ -30,7 +30,7 @@ public:
             degreesToPixels(mapRight - mapLeft, ppd),
             degreesToPixels(mapTop - mapBottom, ppd));
         
-        chunkLoader.start(&storage, chunkSize);
+        chunkLoader.start(chunkSize, "./db/map.db");
         chunkSpriteLoader.init(&chunkLoader, degreesToPixels(chunkSize, ppd), ppd);
 
         window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
@@ -103,9 +103,9 @@ private:
         int chunkColLeft = int(viewport.left / chunkSize);
         int chunkColRight = int(viewport.right() / chunkSize);
 
-        for (int row = chunkRowTop - 2; row <= chunkRowBottom + 2; ++row)
+        for (int row = chunkRowTop - 1; row <= chunkRowBottom + 1; ++row)
         {
-            for (int col = chunkColLeft - 2; col <= chunkColRight + 2; ++col)
+            for (int col = chunkColLeft - 1; col <= chunkColRight + 1; ++col)
             {   
                 // prevents rendering chunks that are out of bounds
                 // TODO check right and bottom bound also
@@ -142,7 +142,5 @@ private:
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
     double ppd;
-
-    sql::Storage storage = sql::loadStorage("./db/map.db");
     toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
 };

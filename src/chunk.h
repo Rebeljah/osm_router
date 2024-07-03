@@ -59,12 +59,42 @@ struct Chunk
 class ChunkLoader
 {
 public:
-    void start(sql::Storage *storage, float chunkGeoSize)
+    ~ChunkLoader()
     {
-        // start a thread that loads from the db so that
+        // signal for all worker threads to stop, then wait for them all to finish
+        m_stopWorkers = true;
+        for (std::thread *worker : m_workerThreads)
+        {
+            worker->join();
+        }
+
+        // delete all of the chunks in the cache
+        for (vector<Chunk *> &row : m_cache)
+        {
+            for (Chunk *p : row)
+            {
+                delete p;
+            }
+        }
+    }
+
+    void start(float chunkGeoSize, string dbFilePath)
+    {
+        // this flag will be set to true to stop the workers
+        m_stopWorkers = false;
+        // start threads that load chunks from the db so that
         // chunks can be loaded in the background without freezing the app
-        m_thread = std::thread([this, storage, chunkGeoSize]()
-                               { this->loaderThread(storage, chunkGeoSize); });
+        auto workerTask = [this, chunkGeoSize, dbFilePath]()
+        {
+            this->workerThread(chunkGeoSize, dbFilePath);
+        };
+
+        // threads need to be stored on the heap. If they were on the stack, they
+        // would get deleted immediately
+        for (int i = 0; i < 5; ++i)
+        {
+            m_workerThreads.push_back(new std::thread(workerTask));
+        }
     };
 
     /*
@@ -74,86 +104,101 @@ public:
 
     @param row: row of the chunk to load
     @param col: col of the chunk to load
-    @returns An empty option if the chunk is not loaded, else an option containing 
+    @returns An empty option if the chunk is not loaded, else an option containing
      a pointer to the cached chunk.
     */
     std::optional<Chunk *> get(int row, int col)
     {
-        if (m_chunkGrid.size() <= row)
-            m_chunkGrid.resize(row + 1);
-
-        if (m_chunkGrid[row].size() <= col)
-            m_chunkGrid[row].resize(col + 1);
-
-        // check if chunk if already loaded
-        if (auto pChnk = m_chunkGrid[row][col])
+        // resize the cache grid and isLoading flag grid to fit the chunk
+        if (m_cache.size() <= row)
         {
-            return pChnk;
+            m_cache.resize(row + 1);
+            m_isLoading.resize(row + 1);
+        }
+        if (m_cache[row].size() <= col)
+        {
+            m_cache[row].resize(col + 1, nullptr);  // cache slots are init'd as nullptr
+            m_isLoading[row].resize(col + 1, false);  // flag grid slots are init'd false
         }
 
-        // start loading chunk and return empty option
-        load(row, col);
-        return std::nullopt;
+        // check if chunk is cached first
+        Chunk *pChunk = m_cache[row][col];
+
+        // cache miss, so start loading and return a null option for now
+        if (pChunk == nullptr)
+        {
+            startLoadingChunk(row, col);
+            return std::nullopt;
+        }
+
+        return pChunk;
     }
 
 private:
-    void load(int row, int col)
+    void startLoadingChunk(int row, int col)
     {
-        auto gridCoord = std::make_pair(row, col);
-        
         // if the chunk is not already loading, push it to the queue so that
-        // the loader thread will retrieve from the db
+        // the loader thread will retrieve it from the db
+
+        // a mutex is used to limit access of shared state to one thread at a time
         m_mutex.lock();
         {
-            bool alreadyLoading = !m_currentlyLoading.emplace(gridCoord).second;
-            if (!alreadyLoading)
+            if (!m_isLoading[row][col])
             {
-                m_loadQueue.push(gridCoord);
+                m_loadQueue.push({ row, col });
+                m_isLoading[row][col] = true;
             }
         }
         m_mutex.unlock();
     }
 
-    void loaderThread(sql::Storage *storage, float chunkGeoSize)
+    void workerThread(float chunkGeoSize, string dbFilePath)
     {
         using namespace sqlite_orm;
 
+        // https://www.sqlite.org/threadsafe.html
+        sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
+
+        // each worker thread gets its own connection to the db
+        auto storage = sql::loadStorage(dbFilePath);
+
         // continually take coordinates of chunks to be loaded from the work queue
-        while (true)
+        while (!m_stopWorkers)
         {
+            m_mutex.lock();
             if (m_loadQueue.empty()) // no work to do yet
             {
+                m_mutex.unlock();
+                // wait a bit before checking for work so that the mutex isn't hogged
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
                 continue;
             }
 
-            auto gridCoord = m_loadQueue.front();
+            auto [row, col] = m_loadQueue.front();
+            m_loadQueue.pop();
 
-            m_mutex.lock();
-            {
-                m_loadQueue.pop();
-            }
             m_mutex.unlock();
 
             // load chunk sql data then init Chunk with data
             // the Chunk constructor needs the storage object because it will
             // load all of the nodes and edges that are inside of it.
-            const auto &[row, col] = gridCoord;
-            auto sqlChunk = storage->get<sql::Chunk>(chunkId(row, col));
-            auto newChunk = new Chunk(sqlChunk, chunkGeoSize, storage);
+            sql::Chunk data = storage.get<sql::Chunk>(chunkId(row, col));
+            Chunk *newChunk = new Chunk(data, chunkGeoSize, &storage);
 
             // place the chunk into the cache and unmark it as loading
             m_mutex.lock();
             {
-                m_chunkGrid[row][col] = newChunk;
-                m_currentlyLoading.erase(gridCoord);
+                m_cache[row][col] = newChunk;
+                m_isLoading[row][col] = false;
             }
             m_mutex.unlock();
         }
     }
 
-    unordered_set<pair<int, int>, PairHasher<int>> m_currentlyLoading;
-    vector<vector<Chunk *>> m_chunkGrid;
+    vector<vector<Chunk *>> m_cache;
+    vector<vector<bool>> m_isLoading;
     queue<pair<int, int>> m_loadQueue;
-    thread m_thread;
+    vector<thread *> m_workerThreads;
     mutex m_mutex;
+    bool m_stopWorkers;
 };
