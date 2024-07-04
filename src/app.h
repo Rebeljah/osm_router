@@ -63,7 +63,7 @@ private:
             if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
             {
                 bool isPressed = event.type == sf::Event::KeyPressed;
-
+                
                 if (event.key.code == sf::Keyboard::Key::Up)
                 {
                     viewport.controlPanning(PanDirection::Up, isPressed);
@@ -94,7 +94,7 @@ private:
 
     void render()
     {
-        window.clear();
+        window.clear(sf::Color(247, 246, 246, 255));
 
         // determine the range of chunks that are inside of the viewport to render
         float chunkSize = degreesToPixels(*config["map"]["chunk_size"].value<double>(), ppd);

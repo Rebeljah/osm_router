@@ -9,8 +9,8 @@
 #include "utils.h"
 #include "geometry.h"
 
-using std::vector;
 using std::string;
+using std::vector;
 
 // path_descriptor_to_int = {"Forbidden": 0, "Allowed": 1, "Residential": 2, "Tertiary": 3, "Secondary": 4, "Primary": 5, "Trunk": 6, "Motorway": 7, "Track": 8, "Lane": 8}
 enum class PathDescriptor
@@ -86,17 +86,28 @@ struct Edge
         // set the color of the edge based on the type of path
         // for example: highways can be colored red, while bike/hiking only paths can
         // be green
-        color = sf::Color::Blue;
+        color = sf::Color(95, 188, 89, 255);
 
-        if ((PathDescriptor)data.pathFoot != PathDescriptor::Forbidden || (PathDescriptor)data.pathBikeFwd != PathDescriptor::Forbidden || (PathDescriptor)data.pathBikeBwd != PathDescriptor::Forbidden)
+        auto carFwd = (PathDescriptor)data.pathCarFwd;
+        auto carBwd = (PathDescriptor)data.pathCarBwd;
+
+        if (
+            carFwd == PathDescriptor::Motorway || carFwd == PathDescriptor::Trunk ||
+            carBwd == PathDescriptor::Motorway || carBwd == PathDescriptor::Trunk)
         {
-            if ((PathDescriptor)data.pathCarFwd == PathDescriptor::Forbidden && (PathDescriptor)data.pathCarBwd == PathDescriptor::Forbidden)
-                color = sf::Color::Green;
+            color = sf::Color(112, 144, 178, 255);
         }
-
-        if ((PathDescriptor)data.pathCarFwd == PathDescriptor::Motorway || (PathDescriptor)data.pathCarBwd == PathDescriptor::Motorway)
+        else if (
+            carFwd == PathDescriptor::Primary || carFwd == PathDescriptor::Secondary ||
+            carBwd == PathDescriptor::Primary || carBwd == PathDescriptor::Secondary)
         {
-            color = sf::Color::Red;
+            color = sf::Color(0,0,0, 255);
+        }
+        else if (
+            carFwd == PathDescriptor::Tertiary || carFwd == PathDescriptor::Residential ||
+            carBwd == PathDescriptor::Tertiary || carBwd == PathDescriptor::Residential)
+        {
+            color = sf::Color(198, 202, 210, 255);
         }
     }
 };
