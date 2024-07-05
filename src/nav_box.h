@@ -163,6 +163,11 @@ public:
         return aStarBox;
     }
 
+    // Gets the selected algorithm
+    std::string getSelectedAlgorithm() {
+        return selectedAlgorithm;
+    }
+
     // Toggle the Dijkstra checkbox by changing the color of the box
     void toggleDijkstra() {
         if (dijkstraBox.getFillColor() == sf::Color::White) {
