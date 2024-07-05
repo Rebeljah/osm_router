@@ -19,7 +19,8 @@ struct Node
 /*
 Returns the node pointer which is closest to the given longitude / latitude point.
 @param nodes: Vector of Node* to consider
-@param lonLatPoint: geographic point
+@param longitude: longitude of the point
+@param latitude: latitude of the point
 @returns Node* with the closest coordinate to the given coordinate.
 */
 Node *findNearestNode(vector<Node *> nodes, double longitude, double latitude)
