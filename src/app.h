@@ -6,6 +6,7 @@
 #include "viewport.h"
 #include "chunk.h"
 #include "chunk_sprite.h"
+#include "nav_box.h"
 
 class App
 {
@@ -29,7 +30,9 @@ public:
             degreesToPixels(viewportH, ppd),
             degreesToPixels(mapRight - mapLeft, ppd),
             degreesToPixels(mapTop - mapBottom, ppd));
-        
+
+        navBox.init(250, 140, window);
+
         chunkLoader.start(&storage, chunkSize);
         chunkSpriteLoader.init(&chunkLoader, degreesToPixels(chunkSize, ppd), ppd);
 
@@ -79,6 +82,34 @@ private:
                 else if (event.key.code == sf::Keyboard::Key::Right)
                 {
                     viewport.controlPanning(PanDirection::Right, isPressed);
+                }
+            }
+
+
+            /* 
+            TODO: mouse-click to insert the closest nodes into origin-destination fields
+                  that will be used for solving the shortest path problem.
+            */ 
+
+            if (event.type == sf::Event::MouseButtonPressed) {
+                
+                // Get the mouse position
+                sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+
+                // Left-clicks
+                if (event.mouseButton.button == sf::Mouse::Left) {
+
+                    // Toggle the Dijkstra checkbox
+                    if (navBox.getDijkstraBox().getGlobalBounds().contains(mousePos.x, mousePos.y)) {
+                        navBox.toggleDijkstra();
+                    }
+                    // Toggle the A* search checkbox
+                    else if (navBox.getAStarBox().getGlobalBounds().contains(mousePos.x, mousePos.y)) {
+                        navBox.toggleAStar();
+                    }
+
+                    // TODO: If submit is clicked, find the shortest path between A and B using the 
+                    // selected algorithm
                 }
             }
         }
@@ -132,6 +163,10 @@ private:
                 window.draw(sprite);
             }
         }
+
+        // Draws a navigation box at the bottom-left of the screen
+        navBox.draw(window);
+
         window.display();
     }
 
@@ -139,6 +174,7 @@ private:
     sf::Clock clock;
 
     Viewport viewport;
+    NavBox navBox;
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
     double ppd;
