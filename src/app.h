@@ -11,7 +11,7 @@
 class App
 {
 public:
-    App() : window(sf::VideoMode(800, 800), "OSM Router"), chunkSpriteLoader()
+    App() : window(sf::VideoMode(800, 800), "NaviGator"), chunkSpriteLoader()
     {
         using Degree = double;
         Degree mapTop = *config["map"]["bbox_top"].value<double>();
