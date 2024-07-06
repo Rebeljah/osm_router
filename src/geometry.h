@@ -19,11 +19,11 @@ let p and d such that p px = d deg. Therefore, 1 deg = (p/d) px, and
 x deg = x * (p/d) px.
 
 @param x: input decimal degrees value
-@param ppd: ratio of pixels per degree
+@param pixelsPerDegree: ratio of pixels per degree
 */
-double degreesToPixels(double x, double ppd)
+double degreesToPixels(double x, double pixelsPerDegree)
 {
-    return x * ppd;
+    return x * pixelsPerDegree;
 }
 
 /*
@@ -33,11 +33,11 @@ let d and p such that p px = d deg. Therefore, 1 px = (d/p) deg and
 x px = x * (d/p) deg
 
 @param x: input pixel value
-@param dpp: ratio of degrees per pixel
+@param degreesPerPixel: ratio of degrees per pixel
 */
-double pixelsToDegrees(double x, double dpp)
+double pixelsToDegrees(double x, double degreesPerPixel)
 {
-    return x * dpp;
+    return x * degreesPerPixel;
 }
 
 template <typename T>
