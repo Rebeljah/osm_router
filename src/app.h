@@ -65,52 +65,21 @@ private:
             // pan the map around by holding arrow keys
             if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
             {
-                bool isPressed = event.type == sf::Event::KeyPressed;
-                
-                if (event.key.code == sf::Keyboard::Key::Up)
-                {
-                    viewport.controlPanning(PanDirection::Up, isPressed);
-                }
-                else if (event.key.code == sf::Keyboard::Key::Down)
-                {
-                    viewport.controlPanning(PanDirection::Down, isPressed);
-                }
-                else if (event.key.code == sf::Keyboard::Key::Left)
-                {
-                    viewport.controlPanning(PanDirection::Left, isPressed);
-                }
-                else if (event.key.code == sf::Keyboard::Key::Right)
-                {
-                    viewport.controlPanning(PanDirection::Right, isPressed);
-                }
+                viewport.controlPanning(event);
             }
 
-
-            /* 
+            /*
             TODO: mouse-click to insert the closest nodes into origin-destination fields
                   that will be used for solving the shortest path problem.
-            */ 
+            */
 
-            if (event.type == sf::Event::MouseButtonPressed) {
+            if (event.type == sf::Event::MouseButtonPressed)
+            {
+                int x = event.mouseButton.x;
+                int y = event.mouseButton.y;
                 
-                // Get the mouse position
-                sf::Vector2i mousePos = sf::Mouse::getPosition(window);
-
-                // Left-clicks
-                if (event.mouseButton.button == sf::Mouse::Left) {
-
-                    // Toggle the Dijkstra checkbox
-                    if (navBox.getDijkstraBox().getGlobalBounds().contains(mousePos.x, mousePos.y)) {
-                        navBox.toggleDijkstra();
-                    }
-                    // Toggle the A* search checkbox
-                    else if (navBox.getAStarBox().getGlobalBounds().contains(mousePos.x, mousePos.y)) {
-                        navBox.toggleAStar();
-                    }
-
-                    // TODO: If submit is clicked, find the shortest path between A and B using the 
-                    // selected algorithm
-                }
+                if (navBox.getBox().getGlobalBounds().contains(x, y))
+                    navBox.handleClick(event);
             }
         }
     }
@@ -137,7 +106,7 @@ private:
         for (int row = chunkRowTop - 1; row <= chunkRowBottom + 1; ++row)
         {
             for (int col = chunkColLeft - 1; col <= chunkColRight + 1; ++col)
-            {   
+            {
                 // prevents rendering chunks that are out of bounds
                 // TODO check right and bottom bound also
                 if (row < 0 || col < 0)

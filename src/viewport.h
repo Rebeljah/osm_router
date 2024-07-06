@@ -35,24 +35,25 @@ public:
     /*
     This function can be used to start or stop the viewport moving in a certain
     direction.
-    @param direction: One of Up,Down,Left,Right
-    @param isPanning: true or false to turn on or off panning in the given direction
+    @param keyEvent: should be a keydown or keyup event
     */
-    void controlPanning(PanDirection direction, bool isPanning)
+    void controlPanning(sf::Event keyEvent)
     {
-        switch (direction)
+        bool isPressed = keyEvent.type == sf::Event::KeyPressed;
+
+        switch (keyEvent.key.code)
         {
-        case PanDirection::Up:
-            isPanningUp = isPanning;
+        case sf::Keyboard::Up:
+            isPanningUp = isPressed;
             break;
-        case PanDirection::Down:
-            isPanningDown = isPanning;
+        case sf::Keyboard::Down:
+            isPanningDown = isPressed;
             break;
-        case PanDirection::Left:
-            isPanningLeft = isPanning;
+        case sf::Keyboard::Left:
+            isPanningLeft = isPressed;
             break;
-        case PanDirection::Right:
-            isPanningRight = isPanning;
+        case sf::Keyboard::Right:
+            isPanningRight = isPressed;
             break;
         }
     }
