@@ -21,7 +21,7 @@ struct ChunkSprite : sf::Sprite
         this->setTexture(renderTexture.getTexture());
     }
 
-    void renderEdge(Edge &edge, double ppd)
+    void renderEdge(Edge &edge, double pixelsPerDegree)
     {
         // the edges path is rendered by loading it's points into a vertex array
         // then drawing the vertex array to the RenderTexture.
@@ -34,8 +34,8 @@ struct ChunkSprite : sf::Sprite
             double lat = edge.path.points[i].y;
             // convert the offset lon, lat to pixels and then offset to the
             // chunk's rectangle.
-            auto x = (float)degreesToPixels(lon, ppd) - rect.left;
-            auto y = (float)degreesToPixels(lat, ppd) - rect.top;
+            auto x = (float)degreesToPixels(lon, pixelsPerDegree) - rect.left;
+            auto y = (float)degreesToPixels(lat, pixelsPerDegree) - rect.top;
 
             path[i].color = edge.color;
             path[i].position = {x, y};
@@ -52,18 +52,18 @@ class ChunkSpriteLoader
 public:
     ChunkSpriteLoader() {}
 
-    ChunkSpriteLoader(ChunkLoader *pChunkLoader, float chunkGeoSize, double ppd)
+    ChunkSpriteLoader(ChunkLoader *pChunkLoader, float chunkGeoSize, double pixelsPerDegree)
     : m_pChunkLoader(pChunkLoader),
       m_chunkGeosize(chunkGeoSize),
-      m_ppd(ppd)
+      m_pixelsPerDegree(pixelsPerDegree)
     {
     }
 
-    void init(ChunkLoader *pChunkLoader, float chunkGeoSize, double ppd)
+    void init(ChunkLoader *pChunkLoader, float chunkGeoSize, double pixelsPerDegree)
     {
         m_pChunkLoader = pChunkLoader;
         m_chunkGeosize = chunkGeoSize;
-        m_ppd = ppd;
+        m_pixelsPerDegree = pixelsPerDegree;
     }
 
     std::optional<ChunkSprite *> get(int row, int col)
@@ -101,8 +101,8 @@ private:
     {
         // convert the offset lan, lon stored in the db to a pixel position
         auto rect = Rectangle<float>(
-            (float)degreesToPixels(chunk.data.offsetLatTop, m_ppd),
-            (float)degreesToPixels(chunk.data.offsetLonLeft, m_ppd),
+            (float)degreesToPixels(chunk.data.offsetLatTop, m_pixelsPerDegree),
+            (float)degreesToPixels(chunk.data.offsetLonLeft, m_pixelsPerDegree),
             m_chunkGeosize,
             m_chunkGeosize
         );
@@ -114,7 +114,7 @@ private:
         {
             for (auto &edge : node.edgesOut)
             {
-                chunkSprite->renderEdge(edge, m_ppd);
+                chunkSprite->renderEdge(edge, m_pixelsPerDegree);
 
                 // find edges that cross into other chunks
                 // This work by getting a bounding box that encompasses the edge,
@@ -123,10 +123,10 @@ private:
                 Rectangle<float> bbox = edge.path.getGeoBoundingBox();
                 // get the range of chunks coordinates (r0 to r1, c0 to c1) that the
                 // edge's bounding box intersects
-                int r0 = int(bbox.top / pixelsToDegrees(m_chunkGeosize, 1/m_ppd));
-                int r1 = int(bbox.bottom() / pixelsToDegrees(m_chunkGeosize, 1/m_ppd));
-                int c0 = int(bbox.left / pixelsToDegrees(m_chunkGeosize, 1/m_ppd));
-                int c1 = int(bbox.right() / pixelsToDegrees(m_chunkGeosize, 1/m_ppd));
+                int r0 = int(bbox.top / pixelsToDegrees(m_chunkGeosize, 1/m_pixelsPerDegree));
+                int r1 = int(bbox.bottom() / pixelsToDegrees(m_chunkGeosize, 1/m_pixelsPerDegree));
+                int c0 = int(bbox.left / pixelsToDegrees(m_chunkGeosize, 1/m_pixelsPerDegree));
+                int c1 = int(bbox.right() / pixelsToDegrees(m_chunkGeosize, 1/m_pixelsPerDegree));
                 for (int r = r0; r <= r1; ++r)
                 {
                     for (int c = c0; c <= c1; ++c)
@@ -166,7 +166,7 @@ private:
             }
 
             // chunk loaded, so the interchunk edge can be rendered onto it.
-            m_grid[row][col]->renderEdge(*pEdge, m_ppd);
+            m_grid[row][col]->renderEdge(*pEdge, m_pixelsPerDegree);
         }
     }
 
@@ -174,5 +174,5 @@ private:
     vector<vector<ChunkSprite *>> m_grid;
     ChunkLoader *m_pChunkLoader;
     float m_chunkGeosize;
-    double m_ppd;
+    double m_pixelsPerDegree;
 };

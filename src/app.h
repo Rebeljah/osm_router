@@ -11,7 +11,7 @@
 class App
 {
 public:
-    App() : window(sf::VideoMode(800, 800), "OSM Router"), chunkSpriteLoader()
+    App() : window(sf::VideoMode(800, 800), "NaviGator"), chunkSpriteLoader()
     {
         using Degree = double;
         Degree mapTop = *config["map"]["bbox_top"].value<double>();
@@ -22,19 +22,18 @@ public:
         Degree viewportH = *config["viewport"]["default_h"].value<double>();
         Degree chunkSize = *config["map"]["chunk_size"].value<double>();
 
-        // ratio of pixels per degree
-        ppd = 800 / viewportW;
+        pixelsPerDegree = 800 / viewportW;
 
         viewport = Viewport(
-            degreesToPixels(viewportW, ppd),
-            degreesToPixels(viewportH, ppd),
-            degreesToPixels(mapRight - mapLeft, ppd),
-            degreesToPixels(mapTop - mapBottom, ppd));
+            degreesToPixels(viewportW, pixelsPerDegree),
+            degreesToPixels(viewportH, pixelsPerDegree),
+            degreesToPixels(mapRight - mapLeft, pixelsPerDegree),
+            degreesToPixels(mapTop - mapBottom, pixelsPerDegree));
 
         navBox.init(250, 140, window);
 
         chunkLoader.start(chunkSize, "./db/map.db");
-        chunkSpriteLoader.init(&chunkLoader, degreesToPixels(chunkSize, ppd), ppd);
+        chunkSpriteLoader.init(&chunkLoader, degreesToPixels(chunkSize, pixelsPerDegree), pixelsPerDegree);
 
         window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
     }
@@ -97,7 +96,7 @@ private:
         window.clear(sf::Color(247, 246, 246, 255));
 
         // determine the range of chunks that are inside of the viewport to render
-        float chunkSize = degreesToPixels(*config["map"]["chunk_size"].value<double>(), ppd);
+        float chunkSize = degreesToPixels(*config["map"]["chunk_size"].value<double>(), pixelsPerDegree);
         int chunkRowTop = int(viewport.top / chunkSize);
         int chunkRowBottom = int(viewport.bottom() / chunkSize);
         int chunkColLeft = int(viewport.left / chunkSize);
@@ -146,6 +145,6 @@ private:
     NavBox navBox;
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
-    double ppd;
+    double pixelsPerDegree;
     toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
 };
