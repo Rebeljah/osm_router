@@ -60,4 +60,10 @@ struct Rectangle : public sf::Rect<T>
     {
         return Rectangle<T>(this->top * ratio, this->left * ratio, this->width * ratio, this->height * ratio);
     }
+
+    void centerOnPoint(T x, T y)
+    {
+        this->left = x - this->width / 2;
+        this->top = y - this->height / 2;
+    }
 };

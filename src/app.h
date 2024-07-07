@@ -31,6 +31,11 @@ public:
             degreesToPixels(viewportH, pixelsPerDegree),
             degreesToPixels(mapRight - mapLeft, pixelsPerDegree),
             degreesToPixels(mapTop - mapBottom, pixelsPerDegree));
+        
+        viewport.centerOnPoint( // Gainesville, FL
+            degreesToPixels(-82.325005 - mapLeft, pixelsPerDegree),
+            degreesToPixels(mapTop - 29.651982, pixelsPerDegree)
+        );  
 
         navBox.init(250, 140, window);
 
@@ -78,7 +83,7 @@ private:
             {
                 int x = event.mouseButton.x;
                 int y = event.mouseButton.y;
-            
+
                 if (navBox.getBox().getGlobalBounds().contains(x, y))
                     navBox.handleClick(event);
                 else {
