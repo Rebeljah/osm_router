@@ -8,6 +8,8 @@
 #include "chunk_sprite.h"
 #include "nav_box.h"
 
+#include <iostream>
+
 class App
 {
 public:
@@ -61,7 +63,7 @@ private:
             if (event.type == sf::Event::Closed)
                 window.close();
 
-            // pan the map around by holding arrow keys
+            // Pan the map around by holding arrow keys
             if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
             {
                 viewport.controlPanning(event);
@@ -76,9 +78,27 @@ private:
             {
                 int x = event.mouseButton.x;
                 int y = event.mouseButton.y;
-                
+            
                 if (navBox.getBox().getGlobalBounds().contains(x, y))
                     navBox.handleClick(event);
+                else {
+                    sf::Vector2f mousePos = {x, y};
+                    sf::Vector2f newMousePos = viewport.viewportPostoMapPos(mousePos);
+
+                    double globalLatitude = *config["map"]["bbox_top"].value<double>() - pixelsToDegrees(newMousePos.y, (double)(1 / pixelsPerDegree));
+                    double globalLongitude = *config["map"]["bbox_left"].value<double>() + pixelsToDegrees(newMousePos.x, (double)(1 / pixelsPerDegree));
+
+                    // TODO Testing
+                    std::cout << "Lat: " << globalLatitude << std::endl;
+                    std::cout << "Long: " << globalLongitude << std::endl;
+
+                    if (navBox.isOriginFieldSelected()) {
+                        navBox.setOriginText(globalLatitude, globalLongitude);
+                    }
+                    else if (navBox.isDestinationFieldSelected()) {
+                        navBox.setDestinationText(globalLatitude, globalLongitude);
+                    }
+                }
             }
         }
     }
