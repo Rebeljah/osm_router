@@ -10,26 +10,14 @@ enum class PanDirection
     Right,
 };
 
-class Viewport : public Rectangle<float>
+class Viewport : public Rectangle<double>
 {
 public:
     Viewport() {}
 
-    Viewport(float w, float h, float mapWidth, float mapHeight) : Rectangle<float>(0, 0, w, h)
+    Viewport(sf::Vector2<double> displaySize, MapGeometry *mapGeometry)
+    : Rectangle<double>(0, 0, displaySize.x, displaySize.y), mapGeometry(mapGeometry)
     {
-        // this rect defines the area that the viewport is bound to
-        // the user will not be able to move the viewport out of this area
-        this->boundingArea = Rectangle<float>(0, 0, mapWidth, mapHeight);
-    }
-
-    Viewport &operator=(const Viewport &other)
-    {
-        this->top = other.top;
-        this->left = other.left;
-        this->width = other.width;
-        this->height = other.height;
-        this->boundingArea = other.boundingArea;
-        return *this;
     }
 
     /*
@@ -93,6 +81,7 @@ public:
             }
         }
 
+        auto boundingArea = mapGeometry->getDisplayBounds();
         // check collision with pannable area boundaries
         if (left < boundingArea.left)
         {
@@ -128,7 +117,7 @@ public:
     }
 
 private:
-    Rectangle<float> boundingArea;
+    MapGeometry *mapGeometry;
 
     // panning controls
     int panVelocity = 450; // pixels per second

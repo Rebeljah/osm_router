@@ -61,9 +61,105 @@ struct Rectangle : public sf::Rect<T>
         return Rectangle<T>(this->top * ratio, this->left * ratio, this->width * ratio, this->height * ratio);
     }
 
-    void centerOnPoint(T x, T y)
+    void centerOnPoint(sf::Vector2<T> pointVector)
     {
-        this->left = x - this->width / 2;
-        this->top = y - this->height / 2;
+        this->left = pointVector.x - this->width / 2;
+        this->top = pointVector.y - this->height / 2;
     }
+};
+
+class MapGeometry
+{
+public:
+    MapGeometry() {}
+
+    MapGeometry(double pixelsPerDegree, Rectangle<double> mapGeoBounds, double chunkGeoSize)
+    : pixelsPerDegree(pixelsPerDegree), mapGeoBounds(mapGeoBounds), mapDisplayBounds(0,0,0,0),
+    chunkGeoSize(chunkGeoSize)
+    {
+        mapDisplayBounds.width = degreesToPixels(mapGeoBounds.width, pixelsPerDegree);
+        mapDisplayBounds.height = degreesToPixels(mapGeoBounds.height, pixelsPerDegree);
+    }
+
+    const Rectangle<double> getDisplayBounds() const
+    {
+        return mapDisplayBounds;
+    }
+
+    double getChunkGeoSize() const
+    {
+        return chunkGeoSize;
+    }
+
+    double getChunkDisplaySize() const
+    {
+        return chunkGeoSize * pixelsPerDegree;
+    }
+
+    sf::Vector2<double> toPixelVector(const sf::Vector2<double> &geoVector) const
+    {
+        auto res = sf::Vector2<double>(geoVector.x, geoVector.y);
+        res.x *= pixelsPerDegree;
+        res.y *= pixelsPerDegree;
+        return res;
+    }
+
+    sf::Vector2<double> toGeoVector(const sf::Vector2<double> &pixelVector) const
+    {
+        auto res = sf::Vector2<double>(pixelVector.x, pixelVector.y);
+        res.x /= pixelsPerDegree;
+        res.y /= pixelsPerDegree;
+        return res;
+    }
+
+    Rectangle<double> toPixelRectangle(const Rectangle<double> &geoRectangle)
+    {
+        auto res = Rectangle<double>(geoRectangle);
+        res.left *= pixelsPerDegree;
+        res.top *= pixelsPerDegree;
+        res.width *= pixelsPerDegree;
+        res.height *= pixelsPerDegree;
+        return res;
+    }
+
+    Rectangle<double> toGeoRectangle(const Rectangle<double> &pixelRectangle)
+    {
+        auto res = Rectangle<double>(pixelRectangle);
+        res.left /= pixelsPerDegree;
+        res.top /= pixelsPerDegree;
+        res.width /= pixelsPerDegree;
+        res.height /= pixelsPerDegree;
+        return res;
+    }
+
+    sf::Vector2<double> offsetGeoVector(const sf::Vector2<double> &geoVector)
+    {
+        auto res = sf::Vector2<double>(geoVector);
+        res.x = geoVector.x - mapGeoBounds.left;
+        res.y = mapGeoBounds.top - geoVector.y;
+        return res;
+    }
+
+    sf::Vector2<double> unoffsetGeoVector(const sf::Vector2<double> &geoVector)
+    {
+        auto res = sf::Vector2<double>(geoVector);
+        res.x = geoVector.x + mapGeoBounds.left;
+        res.y = geoVector.y + mapGeoBounds.bottom();
+        return res;
+    }
+
+    Rectangle<int> calculateOverlappingChunks(const Rectangle<double> &geoRectangle) const
+    {
+        int topRow = int(geoRectangle.top / chunkGeoSize);
+        int bottomRow = int(geoRectangle.bottom() / chunkGeoSize);
+        int leftCol = int(geoRectangle.left / chunkGeoSize);
+        int rightCol = int(geoRectangle.right() / chunkGeoSize);
+        return Rectangle<int>(topRow, leftCol, rightCol - leftCol, bottomRow - topRow);
+    }
+
+private:
+    double pixelsPerDegree;
+    double chunkGeoSize;
+    Rectangle<double> mapGeoBounds;
+    Rectangle<double> mapDisplayBounds;
 };
