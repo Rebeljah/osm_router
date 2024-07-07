@@ -112,7 +112,7 @@ public:
         return res;
     }
 
-    Rectangle<double> toPixelRectangle(const Rectangle<double> &geoRectangle)
+    Rectangle<double> toPixelRectangle(const Rectangle<double> &geoRectangle) const
     {
         auto res = Rectangle<double>(geoRectangle);
         res.left *= pixelsPerDegree;
@@ -122,7 +122,7 @@ public:
         return res;
     }
 
-    Rectangle<double> toGeoRectangle(const Rectangle<double> &pixelRectangle)
+    Rectangle<double> toGeoRectangle(const Rectangle<double> &pixelRectangle) const
     {
         auto res = Rectangle<double>(pixelRectangle);
         res.left /= pixelsPerDegree;
@@ -132,7 +132,7 @@ public:
         return res;
     }
 
-    sf::Vector2<double> offsetGeoVector(const sf::Vector2<double> &geoVector)
+    sf::Vector2<double> offsetGeoVector(const sf::Vector2<double> &geoVector) const
     {
         auto res = sf::Vector2<double>(geoVector);
         res.x = geoVector.x - mapGeoBounds.left;
@@ -140,12 +140,22 @@ public:
         return res;
     }
 
-    sf::Vector2<double> unoffsetGeoVector(const sf::Vector2<double> &geoVector)
+    sf::Vector2<double> unoffsetGeoVector(const sf::Vector2<double> &geoVector) const
     {
         auto res = sf::Vector2<double>(geoVector);
         res.x = geoVector.x + mapGeoBounds.left;
         res.y = geoVector.y + mapGeoBounds.bottom();
         return res;
+    }
+
+    int maxChunkRow() const
+    {
+        return int(mapGeoBounds.height / chunkGeoSize);
+    }
+
+    int maxChunkCol() const
+    {
+        return int(mapGeoBounds.width / chunkGeoSize);
     }
 
     Rectangle<int> calculateOverlappingChunks(const Rectangle<double> &geoRectangle) const
@@ -155,6 +165,11 @@ public:
         int leftCol = int(geoRectangle.left / chunkGeoSize);
         int rightCol = int(geoRectangle.right() / chunkGeoSize);
         return Rectangle<int>(topRow, leftCol, rightCol - leftCol, bottomRow - topRow);
+    }
+
+    bool isValidChunkGridCoordinate(int row, int col)
+    {
+        return row >= 0 && row <= maxChunkRow() && col >= 0 && col <= maxChunkCol();
     }
 
 private:

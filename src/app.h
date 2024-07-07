@@ -113,12 +113,10 @@ private:
         {
             for (int col = overlap.left - 1; col <= overlap.right() + 1; ++col)
             {
-                // prevents rendering chunks that are out of bounds
-                // TODO check right and bottom bound also
-                if (row < 0 || col < 0)
-                {
+                // sometimes the buffer zone will overflow the map boundaries
+                // we don't want to try loading those chunks
+                if (!mapGeometry.isValidChunkGridCoordinate(row, col))
                     continue;
-                }
 
                 // retrieve the chunk sprite if it is already rendered
                 // if sprite is not rendered, the option will not have a value, so
