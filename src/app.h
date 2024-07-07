@@ -33,8 +33,8 @@ public:
             degreesToPixels(mapTop - mapBottom, pixelsPerDegree));
         
         viewport.centerOnPoint( // Gainesville, FL
-            degreesToPixels(-82.325005 - mapLeft, pixelsPerDegree),
-            degreesToPixels(mapTop - 29.651982, pixelsPerDegree)
+            degreesToPixels(-82.3571 - mapLeft, pixelsPerDegree),
+            degreesToPixels(mapTop - 29.6446, pixelsPerDegree)
         );  
 
         navBox.init(250, 140, window);
