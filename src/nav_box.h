@@ -62,8 +62,11 @@ public:
         }
         // An origin should be required (filled) before altering the destination
         else if (destinationInputBox.getGlobalBounds().contains(x,y)) {
-            activateDestinationField();
-            deactivateOriginField();
+            if (destinationFieldFilled || originFieldFilled)
+            {
+                activateDestinationField();
+                deactivateOriginField();
+            }
         }
 
         // Submitting should 'unfocus' the coordinate fields.
@@ -194,18 +197,22 @@ private:
     }
 
     void activateOriginField() {
+        originInputBox.setOutlineThickness(2);
         originFieldSelected = true;
     }
 
     void activateDestinationField() {
+        destinationInputBox.setOutlineThickness(2);
         destinationFieldSelected = true;
     }
 
     void deactivateDestinationField() {
+        destinationInputBox.setOutlineThickness(1);
         destinationFieldSelected = false;
     }
 
     void deactivateOriginField() {
+        originInputBox.setOutlineThickness(1);
         originFieldSelected = false;
     }
 
