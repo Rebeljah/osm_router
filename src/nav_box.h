@@ -10,17 +10,13 @@ enum class AlgoName
 class NavBox
 {
 public:
-    NavBox()
-    {
-    }
-
     /*
     Should be called at the start of the app because it requires values that
     are not available until the App class is being constructed
     */
     void init(float width, float height, sf::RenderWindow &window)
     {
-        originFieldSelected = false;
+        originFieldSelected = true;
         destinationFieldSelected = false;
         originFieldFilled = false;
         destinationFieldFilled = false;
@@ -30,9 +26,9 @@ public:
         initCheckBoxes(window, height);
         initTextElements(window, height);
         initSubmitButton(window, height, width);
-        setOriginPlaceholder();
         activateOriginField();
         selectDijkstra();
+        setPlaceHolders();
     }
 
     sf::RectangleShape getBox()
@@ -43,50 +39,45 @@ public:
     // Activates clicked elements of the navbox
     // Including input fields and checkboxes
     // Returns true if there was a state change.
-    bool handleClick(sf::Event clickEvent)
+    void handleClick(sf::Event clickEvent)
     {
-        if (clickEvent.mouseButton.button != sf::Mouse::Left) return false;
+        if (clickEvent.mouseButton.button != sf::Mouse::Left) return;
 
         int x = clickEvent.mouseButton.x;
         int y = clickEvent.mouseButton.y;
 
-        if (!backgroundBox.getGlobalBounds().contains(x,y)) return false;
+        if (!backgroundBox.getGlobalBounds().contains(x,y)) return;
 
         if (dijkstraCheckBox.getGlobalBounds().contains(x, y)) {
             selectDijkstra();
-            return true;
         }
         else if (aStarCheckBox.getGlobalBounds().contains(x, y)) {
             selectAStar();
-            return true;
         }
+
         // Only one field can be active at a time.
         else if (originInputBox.getGlobalBounds().contains(x,y)) {
             activateOriginField();
             deactivateDestinationField();
-            return true;
         }
         // An origin should be required (filled) before altering the destination
-        else if (destinationInputBox.getGlobalBounds().contains(x,y) && destinationFieldFilled && originFieldFilled) {
+        else if (destinationInputBox.getGlobalBounds().contains(x,y)) {
             activateDestinationField();
             deactivateOriginField();
-            return true;
-        }    
+        }
+
         // Submitting should 'unfocus' the coordinate fields.
         else if (submitButton.getGlobalBounds().contains(x, y))
         {
             deactivateOriginField();
             deactivateDestinationField();
-            return true;
         }
-
-        return false;
     }
     
     // Currently only operates on backspace
     // which clears the active input field
     // and returns true if there was a state change.
-    bool handleKeyPress(sf::Event keyEvent)
+    void handleKeyPress(sf::Event keyEvent)
     {
         bool isPressed = keyEvent.type == sf::Event::KeyPressed;
 
@@ -94,48 +85,50 @@ public:
         // except in the case that both are empty, where only origin has a placeholder.
         if (isPressed && keyEvent.key.code == sf::Keyboard::BackSpace) {
             if (originFieldSelected && originFieldFilled) {
-                setOriginPlaceholder();
                 originFieldFilled = false;
-                if (!destinationFieldFilled) {
-                    destinationText.setString("");
-                }
-                return true;
             }
-            else if (destinationFieldSelected && destinationFieldFilled) {
-                setDestinationPlaceholder();
+            else if (destinationFieldSelected && originFieldFilled) {
                 destinationFieldFilled = false;
                 if (!originFieldFilled) {
-                    setOriginPlaceholder();
                     originFieldSelected = true;
                     destinationFieldSelected = false;
                 }
-                return true;
+            }
+            else if (destinationFieldSelected && destinationFieldFilled && !originFieldFilled) {
+                destinationFieldFilled = false;
+                originFieldSelected = true;
+                destinationFieldSelected = false;
             }
         }
 
-        return false;
+        setPlaceHolders();   // If necessary
     }
 
     // Passes the given coordinates into the active input field
     // Returns true if successful
-    bool updateCoordinates(const double& globalLatitude, const double& globalLongitude) {
+    void updateCoordinates(const double& globalLatitude, const double& globalLongitude) {
         if (originFieldSelected) {
             setOriginText(globalLatitude, globalLongitude);
             deactivateOriginField();
 
             if (!destinationFieldFilled) {
                 activateDestinationField();
-                setDestinationPlaceholder();
             }                     
-            return true;
         }
         else if (destinationFieldSelected) {
-            setDestinationText(globalLatitude, globalLongitude);
-            deactivateDestinationField();
-            return true;
+            
+            if (originFieldFilled) {
+                setDestinationText(globalLatitude, globalLongitude);
+                deactivateDestinationField();
+            }
+            else {
+                setOriginText(globalLatitude, globalLongitude);
+                deactivateOriginField();
+                deactivateDestinationField();
+            }
         }
 
-        return false;
+        setPlaceHolders(); // If necessary
     }
 
     void draw(sf::RenderWindow &window)
@@ -216,12 +209,20 @@ private:
         originFieldSelected = false;
     }
 
-    void setOriginPlaceholder() {
-        originText.setString("Click on map to choose origin");
-    }
-
-    void setDestinationPlaceholder() {
-        destinationText.setString("Click on map to choose destination");
+    void setPlaceHolders() {
+        if (originFieldFilled && destinationFieldFilled) {
+            return;
+        }
+        else if (originFieldFilled && !destinationFieldFilled) {
+            destinationText.setString("Click on map to choose destination");
+        }
+        else if (!originFieldFilled && destinationFieldFilled) {
+            originText.setString("Click on map to choose origin");
+        }
+        else {
+            originText.setString("Click on map to choose origin");
+            destinationText.setString("");
+        }
     }
 
     // Select the Dijkstra checkbox by changing the color of the box
