@@ -7,7 +7,6 @@
 #include "chunk.h"
 #include "chunk_sprite.h"
 #include "nav_box.h"
-
 #include <iostream>
 
 class App
@@ -37,7 +36,7 @@ public:
             degreesToPixels(mapTop - 29.6446, pixelsPerDegree)
         );  
 
-        navBox.init(250, 140, window);
+        navBox.init(250, 130, window);
 
         chunkLoader.start(chunkSize, "./db/map.db");
         chunkSpriteLoader.init(&chunkLoader, degreesToPixels(chunkSize, pixelsPerDegree), pixelsPerDegree);
@@ -72,6 +71,7 @@ private:
             if (event.type == sf::Event::KeyPressed || event.type == sf::Event::KeyReleased)
             {
                 viewport.controlPanning(event);
+                navBox.handleKeyPress(event);
             }
 
             /*
@@ -93,16 +93,7 @@ private:
                     double globalLatitude = *config["map"]["bbox_top"].value<double>() - pixelsToDegrees(newMousePos.y, (double)(1 / pixelsPerDegree));
                     double globalLongitude = *config["map"]["bbox_left"].value<double>() + pixelsToDegrees(newMousePos.x, (double)(1 / pixelsPerDegree));
 
-                    // TODO Testing
-                    std::cout << "Lat: " << globalLatitude << std::endl;
-                    std::cout << "Long: " << globalLongitude << std::endl;
-
-                    if (navBox.isOriginFieldSelected()) {
-                        navBox.setOriginText(globalLatitude, globalLongitude);
-                    }
-                    else if (navBox.isDestinationFieldSelected()) {
-                        navBox.setDestinationText(globalLatitude, globalLongitude);
-                    }
+                    navBox.updateCoordinates(globalLatitude, globalLongitude);
                 }
             }
         }
