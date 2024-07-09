@@ -122,6 +122,26 @@ private:
     float panVelocity;
 };
 
+struct ToastLifetime
+{
+    ToastLifetime(sf::Time spawnTime, sf::Time timeToLive, const sf::Clock &clock)
+        : spawnTime(spawnTime), timeToLive(timeToLive), clock(clock)
+    {
+    }
+
+    const sf::Time spawnTime;
+    const sf::Time timeToLive;
+    const sf::Clock &clock;
+
+    /**
+     * Determine whether the toast has been alive longer than its time-to-live
+     */
+    bool isExpired() const
+    {
+        return (clock.getElapsedTime() - spawnTime) > timeToLive;
+    }
+};
+
 /**
  * Manages your toasts for you :).
  */
@@ -147,11 +167,16 @@ public:
      * @param centerX The x-coordinate where the toast should be centered.
      * @param message The message text to display.
      * @param toastID The unique identifier for the toast.
+     * @param timeToLive duration after which the toast will automatically be removed.
      */
-    void spawnToast(int centerX, string message, string toastID)
+    void spawnToast(int centerX, string message, string toastID, sf::Time timeToLive = sf::seconds(99999))
     {
+        if (toasts.find(toastID) != toasts.end())
+            return; // non-unique id
+
         auto t = new Toast(message, font, centerX);
         toasts.emplace(toastID, t);
+        toastLifetimes.emplace(toastID, ToastLifetime(clock.getElapsedTime(), timeToLive, clock));
         t->spawn();
     }
 
@@ -183,6 +208,9 @@ public:
         {
             toast->update(deltaTime);
 
+            if (toastLifetimes.at(id).isExpired())
+                removeToast(id);
+
             if (toast->isRemoved())
                 removedToasts.push_back({id, toast});
         }
@@ -191,6 +219,7 @@ public:
         {
             delete toast;
             toasts.erase(id);
+            toastLifetimes.erase(id);
         }
     }
 
@@ -209,6 +238,8 @@ public:
 
 private:
     sf::Font font;
-    Rectangle<int> windowSize;
+
+    sf::Clock clock;
     unordered_map<string, Toast *> toasts;
+    unordered_map<string, ToastLifetime> toastLifetimes;
 };
