@@ -87,13 +87,7 @@ private:
                 if (navBox.getBox().getGlobalBounds().contains(x, y))
                     navBox.handleClick(event);
                 else {
-                    sf::Vector2f mousePos = {x, y};
-                    sf::Vector2f newMousePos = viewport.viewportPostoMapPos(mousePos);
-
-                    double globalLatitude = *config["map"]["bbox_top"].value<double>() - pixelsToDegrees(newMousePos.y, (double)(1 / pixelsPerDegree));
-                    double globalLongitude = *config["map"]["bbox_left"].value<double>() + pixelsToDegrees(newMousePos.x, (double)(1 / pixelsPerDegree));
-
-                    navBox.updateCoordinates(globalLatitude, globalLongitude);
+                    navBox.updateCoordinates(x, y, viewport, pixelsPerDegree);
                 }
             }
         }

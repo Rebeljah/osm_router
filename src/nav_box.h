@@ -1,10 +1,32 @@
 #include <SFML/Graphics.hpp>
+#include "tomlplusplus/toml.hpp"
+#include "node.h"
+#include "viewport.h"
+#include "geometry.h"
 #include <iostream>
 
 enum class AlgoName
 {
     AStar,
     Dijkstras
+};
+
+class Pin {
+public:
+    void init(string texturePath) {
+        texture.loadFromFile(texturePath);
+        sprite.setTexture(texture);
+        sprite.setOrigin(texture.getSize().x / 2, texture.getSize().y); // The point is the tip of the pin.
+        sprite.setScale(0.15, 0.15);
+    }
+
+    sf::Sprite& getSprite() {
+        return sprite;
+    }
+
+private:
+    sf::Texture texture;
+    sf::Sprite sprite;
 };
 
 class NavBox
@@ -29,6 +51,7 @@ public:
         activateOriginField();
         selectDijkstra();
         setPlaceHolders();
+        initPins();
     }
 
     sf::RectangleShape getBox()
@@ -104,14 +127,23 @@ public:
             }
         }
 
-        setPlaceHolders();   // If necessary
+        setPlaceHolders();
     }
 
-    // Passes the given coordinates into the active input field
-    // Returns true if successful
-    void updateCoordinates(const double& globalLatitude, const double& globalLongitude) {
+    // Takes the coordinates of a mouse click, converts them to global coordinates
+    // and updates the input fields.
+    void updateCoordinates(int x, int y, Viewport& viewport, double pixelsPerDegree) {
+        sf::Vector2f mousePos = {x, y};
+        sf::Vector2f newMousePos = viewport.viewportPostoMapPos(mousePos);
+
+        double offsetLatitude = pixelsToDegrees(newMousePos.y, (double)(1 / pixelsPerDegree));
+        double offsetLongitude = pixelsToDegrees(newMousePos.x, (double)(1 / pixelsPerDegree));
+        double globalLatitude = *config["map"]["bbox_top"].value<double>() - offsetLatitude;
+        double globalLongitude = *config["map"]["bbox_left"].value<double>() + offsetLongitude;
+        
         if (originFieldSelected) {
             setOriginText(globalLatitude, globalLongitude);
+            updateOriginPin(x, y);
             deactivateOriginField();
 
             if (!destinationFieldFilled) {
@@ -122,16 +154,18 @@ public:
             
             if (originFieldFilled) {
                 setDestinationText(globalLatitude, globalLongitude);
+                updateDestinationPin(x, y);
                 deactivateDestinationField();
             }
             else {
                 setOriginText(globalLatitude, globalLongitude);
+                updateOriginPin(x, y);
                 deactivateOriginField();
                 deactivateDestinationField();
             }
         }
 
-        setPlaceHolders(); // If necessary
+        setPlaceHolders();
     }
 
     void draw(sf::RenderWindow &window)
@@ -149,6 +183,13 @@ public:
         window.draw(aStarCheckBox);
         window.draw(submitButton);
         window.draw(submitButtonLabel);
+
+        if (originFieldFilled) {
+            window.draw(originPin.getSprite());
+        }
+        if (destinationFieldFilled) {
+            window.draw(destinationPin.getSprite());
+        }
     }
 
 private:
@@ -180,6 +221,23 @@ private:
 
     sf::Text submitButtonLabel;
     sf::RectangleShape submitButton;
+
+    Pin originPin;
+    Pin destinationPin;
+
+    toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
+
+    ///////////////////
+    // UI Functions ///
+    ///////////////////
+
+    void updateOriginPin(int x, int y) {
+        originPin.getSprite().setPosition(x, y);
+    }
+
+    void updateDestinationPin(int x, int y) {
+        destinationPin.getSprite().setPosition(x, y);
+    }
 
     void setOriginText(const double& globalLatitude, const double& globalLongitude) {
         originText.setString(std::to_string(globalLatitude) + ", " + std::to_string(globalLongitude));
@@ -257,6 +315,11 @@ private:
     //////////////////////////
     // Initial Construction //
     //////////////////////////
+    void initPins() {
+        originPin.init("assets/images/pin_green.png");
+        destinationPin.init("assets/images/pin_red.png");
+    }
+
     void initBackgroundBox(const float& width, const float& height, sf::RenderWindow& window) {
         backgroundBox.setSize(sf::Vector2f(width, height));
         backgroundBox.setFillColor(sf::Color(255, 255, 255, 220));
