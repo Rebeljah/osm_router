@@ -6,15 +6,23 @@
 
 #include <SFML/Graphics.hpp>
 
-#include "geometry.h"
-
 using std::string;
 using std::unordered_map;
 using std::vector;
 
+/**
+ * Represents a toast message displayed on screen.
+ */
 class Toast : public sf::Sprite
 {
 public:
+    /**
+     * Constructor to create a new Toast.
+     *
+     * @param message The message text to display.
+     * @param font The font to use for the message text.
+     * @param centerX The x-coordinate where the toast should be centered.
+     */
     Toast(const string &message, const sf::Font &font, const int &centerX)
     {
         int padX = 20;    // internal space between toast border and text
@@ -45,7 +53,7 @@ public:
 
         // initial pos will be just above visible window area
         setOrigin(surfaceSize.x / 2, surfaceSize.y); // mid bottom
-        setPosition(centerX, -1);  // mid top of window
+        setPosition(centerX, -1);                    // mid top of window
 
         // pos after panning into view
         finalPosition = sf::Vector2f(getPosition().x, marginY + surfaceSize.y);
@@ -53,12 +61,18 @@ public:
         panVelocity = (finalPosition.y - getPosition().y) / 1; // pixels / sec
     }
 
+    /**
+     * Initiates the animation to pan the toast into view.
+     */
     void spawn()
     {
         isPanningIn = true;
         isPanningOut = false;
     }
 
+    /**
+     * Initiates the animation to pan the toast out of view and marks it for removal.
+     */
     void remove()
     {
         isPanningOut = true;
@@ -66,11 +80,21 @@ public:
         wasRemoved = true;
     }
 
+    /**
+     * Checks if the toast has been removed.
+     *
+     * @return true if the toast has been removed and finished panning out.
+     */
     bool isRemoved()
     {
         return wasRemoved && !isPanningOut;
     }
 
+    /**
+     * Updates the toast's position based on the elapsed time.
+     *
+     * @param deltaTime The time elapsed since the last update.
+     */
     void update(const float &deltaTime)
     {
         if (isPanningIn)
@@ -98,6 +122,9 @@ private:
     float panVelocity;
 };
 
+/**
+ * Manages your toasts for you :).
+ */
 class Toaster
 {
 public:
@@ -106,6 +133,21 @@ public:
         font.loadFromFile("./assets/fonts/Roboto-Light.ttf");
     }
 
+    ~Toaster()
+    {
+        for (auto [_, toast] : toasts)
+        {
+            delete toast;
+        }
+    }
+
+    /**
+     * Spawns a new toast message at a specified position.
+     *
+     * @param centerX The x-coordinate where the toast should be centered.
+     * @param message The message text to display.
+     * @param toastID The unique identifier for the toast.
+     */
     void spawnToast(int centerX, string message, string toastID)
     {
         auto t = new Toast(message, font, centerX);
@@ -113,6 +155,11 @@ public:
         t->spawn();
     }
 
+    /**
+     * Initiates the removal animation for a toast message.
+     *
+     * @param toastID The unique identifier of the toast message to remove.
+     */
     void removeToast(string toastID)
     {
         auto iterator = toasts.find(toastID);
@@ -123,6 +170,11 @@ public:
         iterator->second->remove();
     }
 
+    /**
+     * Updates all active toast messages based on elapsed time.
+     *
+     * @param deltaTime The time elapsed since the last update.
+     */
     void update(const float &deltaTime)
     {
         vector<std::pair<const string &, Toast *>> removedToasts;
@@ -142,6 +194,11 @@ public:
         }
     }
 
+    /**
+     * Renders all active toast messages onto the given render window.
+     *
+     * @param window The render window to render the toasts onto.
+     */
     void render(sf::RenderWindow &window)
     {
         for (auto &[id, toast] : toasts)

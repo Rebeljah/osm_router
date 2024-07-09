@@ -101,6 +101,7 @@ private:
         // it is needed to smoothly update movement independent of framerate
         float deltaTime = clock.restart().asSeconds();
         viewport.update(deltaTime);
+        toaster.update(deltaTime);
     }
 
     void render()
@@ -140,6 +141,7 @@ private:
 
         // Draws a navigation box at the bottom-left of the screen
         navBox.draw(window);
+        toaster.render(window);
 
         window.display();
     }
@@ -151,6 +153,7 @@ private:
 
     Viewport viewport;
     NavBox navBox;
+    Toaster toaster;
 
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
