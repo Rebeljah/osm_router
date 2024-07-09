@@ -1,5 +1,8 @@
 #pragma once
 
+#include <thread>
+#include <chrono>
+
 #include "tomlplusplus/toml.hpp"
 
 #include "geometry.h"
@@ -56,6 +59,8 @@ public:
 
     void run()
     {
+        toaster.spawnToast(window.getSize().x / 2, "Welcome to Navigator!", "1", sf::seconds(4.5));
+
         while (window.isOpen())
         {
             processEvents();
