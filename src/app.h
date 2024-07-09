@@ -7,11 +7,12 @@
 #include "chunk.h"
 #include "chunk_sprite.h"
 #include "nav_box.h"
+#include "toasts.h"
 
 class App
 {
 public:
-    App() : window(sf::VideoMode(800, 800), "NaviGator"), chunkSpriteLoader()
+    App() : window(sf::VideoMode(800, 800), "NaviGator")
     {
         using Degree = double;
         Degree mapTop = *config["map"]["bbox_top"].value<double>();
