@@ -32,10 +32,9 @@ struct Chunk
     Rectangle<float> geoRect;
     unordered_map<int, Node> nodes;
 
-    Chunk(sql::Chunk chunk, float geoSize, sql::Storage *storage)
+    Chunk(sql::Chunk chunk, sql::Storage *storage)
     {
         this->data = chunk;
-        this->geoRect = Rectangle<float>(chunk.offsetLatTop, chunk.offsetLonLeft, geoSize, geoSize);
 
         // prealloc space for all nodes
         nodes.reserve(chunk.numNodes);
@@ -78,15 +77,15 @@ public:
         }
     }
 
-    void start(float chunkGeoSize, string dbFilePath)
+    void start(string dbFilePath)
     {
         // this flag will be set to true to stop the workers
         m_stopWorkers = false;
         // start threads that load chunks from the db so that
         // chunks can be loaded in the background without freezing the app
-        auto workerTask = [this, chunkGeoSize, dbFilePath]()
+        auto workerTask = [this, dbFilePath]()
         {
-            this->workerThread(chunkGeoSize, dbFilePath);
+            this->workerThread(dbFilePath);
         };
 
         // threads need to be stored on the heap. If they were on the stack, they
@@ -152,7 +151,7 @@ private:
         m_mutex.unlock();
     }
 
-    void workerThread(float chunkGeoSize, string dbFilePath)
+    void workerThread(string dbFilePath)
     {
         using namespace sqlite_orm;
 
@@ -183,7 +182,7 @@ private:
             // the Chunk constructor needs the storage object because it will
             // load all of the nodes and edges that are inside of it.
             sql::Chunk data = storage.get<sql::Chunk>(chunkId(row, col));
-            Chunk *newChunk = new Chunk(data, chunkGeoSize, &storage);
+            Chunk *newChunk = new Chunk(data, &storage);
 
             // place the chunk into the cache and unmark it as loading
             m_mutex.lock();

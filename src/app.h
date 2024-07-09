@@ -8,11 +8,12 @@
 #include "chunk_sprite.h"
 #include "nav_box.h"
 #include <iostream>
+#include "toasts.h"
 
 class App
 {
 public:
-    App() : window(sf::VideoMode(800, 800), "NaviGator"), chunkSpriteLoader()
+    App() : window(sf::VideoMode(800, 800), "NaviGator")
     {
         using Degree = double;
         Degree mapTop = *config["map"]["bbox_top"].value<double>();
@@ -23,25 +24,33 @@ public:
         Degree viewportH = *config["viewport"]["default_h"].value<double>();
         Degree chunkSize = *config["map"]["chunk_size"].value<double>();
 
-        pixelsPerDegree = 800 / viewportW;
+        double pixelsPerDegree = 800 / viewportW;
 
-        viewport = Viewport(
-            degreesToPixels(viewportW, pixelsPerDegree),
-            degreesToPixels(viewportH, pixelsPerDegree),
-            degreesToPixels(mapRight - mapLeft, pixelsPerDegree),
-            degreesToPixels(mapTop - mapBottom, pixelsPerDegree));
+        mapGeometry = MapGeometry(
+            pixelsPerDegree,  // pixels per degree
+            { mapTop, mapLeft, mapRight - mapLeft, mapTop - mapBottom },  // map geo area
+            chunkSize // chunk geo size
+        );
+
+        sf::Vector2<double> viewportGeoSize = {
+             *config["viewport"]["default_w"].value<double>(),
+             *config["viewport"]["default_h"].value<double>()
+        };
+
+        viewport = Viewport(mapGeometry.toPixelVector(viewportGeoSize), &mapGeometry);
         
-        viewport.centerOnPoint( // Gainesville, FL
-            degreesToPixels(-82.3571 - mapLeft, pixelsPerDegree),
-            degreesToPixels(mapTop - 29.6446, pixelsPerDegree)
-        );  
+        viewport.centerOnPoint(
+            mapGeometry.toPixelVector(
+                mapGeometry.offsetGeoVector({ -82.325005, 29.651982 })  // Gville, FL
+            )
+        ); 
 
-        navBox.init(250, 130, window);
-
-        chunkLoader.start(chunkSize, "./db/map.db");
-        chunkSpriteLoader.init(&chunkLoader, degreesToPixels(chunkSize, pixelsPerDegree), pixelsPerDegree);
+        chunkLoader.start("./db/map.db");
+        chunkSpriteLoader.init(&chunkLoader, &mapGeometry);
 
         window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
+
+        navBox.init(&window, &viewport, &mapGeometry, 250, 130, pixelsPerDegree);
     }
 
     ~App()
@@ -87,7 +96,7 @@ private:
                 if (navBox.getBox().getGlobalBounds().contains(x, y))
                     navBox.handleClick(event);
                 else {
-                    navBox.updateCoordinates(x, y, viewport, pixelsPerDegree);
+                    navBox.updateCoordinates(event);
                 }
             }
         }
@@ -99,6 +108,7 @@ private:
         // it is needed to smoothly update movement independent of framerate
         float deltaTime = clock.restart().asSeconds();
         viewport.update(deltaTime);
+        toaster.update(deltaTime);
     }
 
     void render()
@@ -106,22 +116,16 @@ private:
         window.clear(sf::Color(247, 246, 246, 255));
 
         // determine the range of chunks that are inside of the viewport to render
-        float chunkSize = degreesToPixels(*config["map"]["chunk_size"].value<double>(), pixelsPerDegree);
-        int chunkRowTop = int(viewport.top / chunkSize);
-        int chunkRowBottom = int(viewport.bottom() / chunkSize);
-        int chunkColLeft = int(viewport.left / chunkSize);
-        int chunkColRight = int(viewport.right() / chunkSize);
+        auto overlap = mapGeometry.calculateOverlappingChunks(mapGeometry.toGeoRectangle(viewport));
 
-        for (int row = chunkRowTop - 1; row <= chunkRowBottom + 1; ++row)
+        for (int row = overlap.top - 1; row <= overlap.bottom() + 1; ++row)
         {
-            for (int col = chunkColLeft - 1; col <= chunkColRight + 1; ++col)
+            for (int col = overlap.left - 1; col <= overlap.right() + 1; ++col)
             {
-                // prevents rendering chunks that are out of bounds
-                // TODO check right and bottom bound also
-                if (row < 0 || col < 0)
-                {
+                // sometimes the buffer zone will overflow the map boundaries
+                // we don't want to try loading those chunks
+                if (!mapGeometry.isValidChunkGridCoordinate(row, col))
                     continue;
-                }
 
                 // retrieve the chunk sprite if it is already rendered
                 // if sprite is not rendered, the option will not have a value, so
@@ -133,7 +137,7 @@ private:
                 ChunkSprite &sprite = **spriteOpt;
 
                 // skip drawing chunks that are buffered but not in the viewport
-                if (row < chunkRowTop || row > chunkRowBottom || col < chunkColLeft || col > chunkColRight)
+                if (row < overlap.top || row > overlap.bottom() || col < overlap.left || col > overlap.right())
                     continue;
 
                 // draw chunk
@@ -144,17 +148,21 @@ private:
 
         // Draws a navigation box at the bottom-left of the screen
         navBox.draw(window);
+        toaster.render(window);
 
         window.display();
     }
+
+    toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
 
     sf::RenderWindow window;
     sf::Clock clock;
 
     Viewport viewport;
     NavBox navBox;
+    Toaster toaster;
+
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
-    double pixelsPerDegree;
-    toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
+    MapGeometry mapGeometry;
 };

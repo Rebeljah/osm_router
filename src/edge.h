@@ -52,12 +52,12 @@ struct PointPath
     from the top left of the map area)
     @returns The smallest rectangle that bounds the entire path.
     */
-    Rectangle<float> getGeoBoundingBox()
+    Rectangle<double> getGeoBoundingBox()
     {
-        float minLon = 1000000;
-        float maxLon = -1000000;
-        float minLat = 1000000;
-        float maxLat = -1000000;
+        double minLon = 1000000;
+        double maxLon = -1000000;
+        double minLat = 1000000;
+        double maxLat = -1000000;
 
         for (const auto &[lon, lat] : points)
         {
@@ -71,7 +71,7 @@ struct PointPath
                 maxLat = lat;
         }
 
-        return Rectangle<float>(minLat, minLon, maxLon - minLon, maxLat - minLat);
+        return Rectangle<double>(minLat, minLon, maxLon - minLon, maxLat - minLat);
     }
 };
 

@@ -13,7 +13,7 @@ using std::queue;
 
 struct ChunkSprite : sf::Sprite
 {
-    ChunkSprite(Rectangle<float> rect) : rect(rect)
+    ChunkSprite(Rectangle<double> rect) : rect(rect)
     {  
         // Drawing will be done on a RenderTexture so that it can be cached
         // this avoid redrawing all of the roads on each frame
@@ -21,7 +21,7 @@ struct ChunkSprite : sf::Sprite
         this->setTexture(renderTexture.getTexture());
     }
 
-    void renderEdge(Edge &edge, double pixelsPerDegree)
+    void renderEdge(Edge &edge, MapGeometry *mapGeometry)
     {
         // the edges path is rendered by loading it's points into a vertex array
         // then drawing the vertex array to the RenderTexture.
@@ -30,21 +30,20 @@ struct ChunkSprite : sf::Sprite
         sf::VertexArray path(sf::LineStrip, edge.path.points.size());
         for (int i = 0; i < edge.path.points.size(); ++i)
         {
-            double lon = edge.path.points[i].x;
-            double lat = edge.path.points[i].y;
-            // convert the offset lon, lat to pixels and then offset to the
-            // chunk's rectangle.
-            auto x = (float)degreesToPixels(lon, pixelsPerDegree) - rect.left;
-            auto y = (float)degreesToPixels(lat, pixelsPerDegree) - rect.top;
+            // convert the offset lon, lat to a map-relative pixel coordinate
+            auto pointDisplayCoordinate = mapGeometry->toPixelVector(edge.path.points[i]);
+            // offset the coordinate to the RenderTexture display rectangle
+            pointDisplayCoordinate -= { rect.left, rect.top };
 
             path[i].color = edge.color;
-            path[i].position = {x, y};
+            path[i].position = sf::Vector2f(pointDisplayCoordinate);
         }
+        // draw the completed path
         renderTexture.draw(path);
     }
 
     sf::RenderTexture renderTexture;
-    Rectangle<float> rect;
+    Rectangle<double> rect;
 };
 
 class ChunkSpriteLoader
@@ -52,23 +51,14 @@ class ChunkSpriteLoader
 public:
     ChunkSpriteLoader() {}
 
-    ChunkSpriteLoader(ChunkLoader *pChunkLoader, float chunkGeoSize, double pixelsPerDegree)
-    : m_pChunkLoader(pChunkLoader),
-      m_chunkGeosize(chunkGeoSize),
-      m_pixelsPerDegree(pixelsPerDegree)
-    {
-    }
-
-    void init(ChunkLoader *pChunkLoader, float chunkGeoSize, double pixelsPerDegree)
+    void init(ChunkLoader *pChunkLoader, MapGeometry *mapGeometry)
     {
         m_pChunkLoader = pChunkLoader;
-        m_chunkGeosize = chunkGeoSize;
-        m_pixelsPerDegree = pixelsPerDegree;
+        m_pMapGeometry = mapGeometry;
     }
 
     std::optional<ChunkSprite *> get(int row, int col)
     {
-
         // grow the cache grid to fit the new sprite if needed
         if (m_grid.size() <= row)
             m_grid.resize(row + 1);
@@ -99,12 +89,13 @@ public:
 private:
     void renderChunkSprite(Chunk &chunk, int row, int col)
     {
-        // convert the offset lan, lon stored in the db to a pixel position
-        auto rect = Rectangle<float>(
-            (float)degreesToPixels(chunk.data.offsetLatTop, m_pixelsPerDegree),
-            (float)degreesToPixels(chunk.data.offsetLonLeft, m_pixelsPerDegree),
-            m_chunkGeosize,
-            m_chunkGeosize
+        auto rect = m_pMapGeometry->toPixelRectangle(
+            {
+                chunk.data.offsetLatTop,
+                chunk.data.offsetLonLeft,
+                m_pMapGeometry->getChunkGeoSize(),
+                m_pMapGeometry->getChunkGeoSize()
+            }
         );
 
         auto chunkSprite = new ChunkSprite(rect);
@@ -114,25 +105,23 @@ private:
         {
             for (auto &edge : node.edgesOut)
             {
-                chunkSprite->renderEdge(edge, m_pixelsPerDegree);
+                chunkSprite->renderEdge(edge, m_pMapGeometry);
 
                 // find edges that cross into other chunks
                 // This work by getting a bounding box that encompasses the edge,
                 // if the bounding box overlaps other chunks, these will be added
                 // to the map and drawn onto the other chunk/s on the next frame.
-                Rectangle<float> bbox = edge.path.getGeoBoundingBox();
+                Rectangle<double> edgeGeoBbox = edge.path.getGeoBoundingBox();
                 // get the range of chunks coordinates (r0 to r1, c0 to c1) that the
                 // edge's bounding box intersects
-                int r0 = int(bbox.top / pixelsToDegrees(m_chunkGeosize, 1/m_pixelsPerDegree));
-                int r1 = int(bbox.bottom() / pixelsToDegrees(m_chunkGeosize, 1/m_pixelsPerDegree));
-                int c0 = int(bbox.left / pixelsToDegrees(m_chunkGeosize, 1/m_pixelsPerDegree));
-                int c1 = int(bbox.right() / pixelsToDegrees(m_chunkGeosize, 1/m_pixelsPerDegree));
-                for (int r = r0; r <= r1; ++r)
+                auto overlap = m_pMapGeometry->calculateOverlappingChunks(edgeGeoBbox);
+
+                for (int r = overlap.top; r <= overlap.bottom(); ++r)
                 {
-                    for (int c = c0; c <= c1; ++c)
+                    for (int c = overlap.left; c <= overlap.right(); ++c)
                     {
                         if (r == chunk.data.row && c == chunk.data.col)
-                            continue;  // don't redner edge again on current chunk
+                            continue;  // don't render edge again on current chunk
                         
                         interChunkEdges.push(std::make_pair(std::make_pair(r, c), &edge));
                     }
@@ -166,13 +155,12 @@ private:
             }
 
             // chunk loaded, so the interchunk edge can be rendered onto it.
-            m_grid[row][col]->renderEdge(*pEdge, m_pixelsPerDegree);
+            m_grid[row][col]->renderEdge(*pEdge, m_pMapGeometry);
         }
     }
 
     queue<pair<pair<int, int>, Edge *>> interChunkEdges;
     vector<vector<ChunkSprite *>> m_grid;
     ChunkLoader *m_pChunkLoader;
-    float m_chunkGeosize;
-    double m_pixelsPerDegree;
+    MapGeometry *m_pMapGeometry;
 };

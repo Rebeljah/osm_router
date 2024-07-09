@@ -16,7 +16,7 @@ public:
     void init(string texturePath) {
         texture.loadFromFile(texturePath);
         sprite.setTexture(texture);
-        sprite.setOrigin(texture.getSize().x / 2, texture.getSize().y); // The point is the tip of the pin.
+        sprite.setOrigin(texture.getSize().x / 2, texture.getSize().y); // The point is the bottom tip of the pin image rather than the top-left corner;
         sprite.setScale(0.15, 0.15);
     }
 
@@ -24,9 +24,31 @@ public:
         return sprite;
     }
 
+    sf::Vector2<double> getPixelPosition() {
+        return mapPosition;
+    }
+
+    sf::Vector2<double> getGeoPosition() {
+        return offsetGeoPosition;
+    }
+
+    void setPixelPosition(sf::Vector2<double> position) {
+        mapPosition = position;
+    }
+
+    void setGeoPosition(sf::Vector2<double> position) {
+        offsetGeoPosition = position;
+    }
+
+    void setSpritePosition(sf::Vector2<double> position) {
+        sprite.setPosition(position.x, position.y);
+    }
+
 private:
     sf::Texture texture;
     sf::Sprite sprite;
+    sf::Vector2<double> mapPosition;
+    sf::Vector2<double> offsetGeoPosition;
 };
 
 class NavBox
@@ -36,18 +58,26 @@ public:
     Should be called at the start of the app because it requires values that
     are not available until the App class is being constructed
     */
-    void init(float width, float height, sf::RenderWindow &window)
+    void init(sf::RenderWindow* window, Viewport* viewport, MapGeometry* mapGeometry, int width, int height, double pixelsPerDegree)
     {
+        // Window needs to be set before anything else, otherwise segfaults occur.
+        this->window = window;
+        this->viewport = viewport;
+        this->mapGeometry = mapGeometry;
+        this->pixelsPerDegree = pixelsPerDegree;
+        this->degreesPerPixel = 1 / pixelsPerDegree;
+        this->height = height;
+        this->width = width;
         originFieldSelected = true;
         destinationFieldSelected = false;
         originFieldFilled = false;
         destinationFieldFilled = false;
         font.loadFromFile("assets/fonts/Roboto-Light.ttf");
-        initBackgroundBox(width, height, window);
-        initInputBoxes(window, height);
-        initCheckBoxes(window, height);
-        initTextElements(window, height);
-        initSubmitButton(window, height, width);
+        initBackgroundBox(width, height);
+        initInputBoxes(height);
+        initCheckBoxes(height);
+        initTextElements(height);
+        initSubmitButton(height, width);
         activateOriginField();
         selectDijkstra();
         setPlaceHolders();
@@ -59,9 +89,12 @@ public:
         return backgroundBox;
     }
 
-    // Activates clicked elements of the navbox
-    // Including input fields and checkboxes
-    // Returns true if there was a state change.
+    /**
+     * Activates clicked elements of the navbox including input fields and checkboxes.
+     * Shouldn't do anything unless the click was a left-click.
+     * 
+     * @param clickEvent: Clicks on the navbox elements.
+    */
     void handleClick(sf::Event clickEvent)
     {
         if (clickEvent.mouseButton.button != sf::Mouse::Left) return;
@@ -100,9 +133,11 @@ public:
         }
     }
     
-    // Currently only operates on backspace
-    // which clears the active input field
-    // and returns true if there was a state change.
+    /**
+     * Updates the navbox elements based on key presses.
+     * 
+     * @param keyEvent: Key presses on the navbox elements.
+    */
     void handleKeyPress(sf::Event keyEvent)
     {
         bool isPressed = keyEvent.type == sf::Event::KeyPressed;
@@ -130,20 +165,31 @@ public:
         setPlaceHolders();
     }
 
-    // Takes the coordinates of a mouse click, converts them to global coordinates
-    // and updates the input fields.
-    void updateCoordinates(int x, int y, Viewport& viewport, double pixelsPerDegree) {
-        sf::Vector2f mousePos = {x, y};
-        sf::Vector2f newMousePos = viewport.viewportPostoMapPos(mousePos);
+    /**
+     * Updates the navbox elements based on mouse clicks.
+     * 
+     * Takes the coordinates of a click and converts them to global coordinates, then updates the input fields.
+     * 
+     * @param mouseEvent: Mouse clicks on the navbox elements.
+    */
+    void updateCoordinates(sf::Event mouseEvent) {
+        int x = mouseEvent.mouseButton.x;
+        int y = mouseEvent.mouseButton.y;
 
-        double offsetLatitude = pixelsToDegrees(newMousePos.y, (double)(1 / pixelsPerDegree));
-        double offsetLongitude = pixelsToDegrees(newMousePos.x, (double)(1 / pixelsPerDegree));
-        double globalLatitude = *config["map"]["bbox_top"].value<double>() - offsetLatitude;
+        sf::Vector2f mousePos = sf::Vector2f(x, y);
+        sf::Vector2f newMousePos = viewport->viewportPostoMapPos(mousePos);
+
+        // Used to update pins if the fields are filled.
+        double offsetLongitude = pixelsToDegrees(newMousePos.x, degreesPerPixel);
+        double offsetLatitude = pixelsToDegrees(newMousePos.y, degreesPerPixel);
+
+        // Used for a global coordinate system appearance within input fields.
         double globalLongitude = *config["map"]["bbox_left"].value<double>() + offsetLongitude;
+        double globalLatitude = *config["map"]["bbox_top"].value<double>() - offsetLatitude;
         
         if (originFieldSelected) {
             setOriginText(globalLatitude, globalLongitude);
-            updateOriginPin(x, y);
+            updateOriginPin(offsetLongitude, offsetLatitude);
             deactivateOriginField();
 
             if (!destinationFieldFilled) {
@@ -154,12 +200,12 @@ public:
             
             if (originFieldFilled) {
                 setDestinationText(globalLatitude, globalLongitude);
-                updateDestinationPin(x, y);
+                updateDestinationPin(offsetLongitude, offsetLatitude);
                 deactivateDestinationField();
             }
             else {
                 setOriginText(globalLatitude, globalLongitude);
-                updateOriginPin(x, y);
+                updateOriginPin(offsetLongitude, offsetLatitude);
                 deactivateOriginField();
                 deactivateDestinationField();
             }
@@ -184,6 +230,8 @@ public:
         window.draw(submitButton);
         window.draw(submitButtonLabel);
 
+        updatePinSprites();
+
         if (originFieldFilled) {
             window.draw(originPin.getSprite());
         }
@@ -193,11 +241,20 @@ public:
     }
 
 private:
+    Viewport *viewport;
+    sf::RenderWindow *window;
+    MapGeometry *mapGeometry;
+
     AlgoName selectedAlgorithm;
     bool originFieldSelected;
     bool destinationFieldSelected;
     bool originFieldFilled;
     bool destinationFieldFilled;
+
+    double pixelsPerDegree;
+    double degreesPerPixel;
+    float height;
+    float width;
 
     ///////////////
     //UI ELEMENTS//
@@ -207,7 +264,11 @@ private:
 
     sf::Text originLabel;
     sf::RectangleShape originInputBox;
+    sf::Text originText;
+    Pin originPin;
 
+    sf::Text destinationText;
+    Pin destinationPin;
     sf::Text destinationLabel;
     sf::RectangleShape destinationInputBox;
 
@@ -216,14 +277,8 @@ private:
     sf::Text aStarCheckBoxLabel;
     sf::RectangleShape aStarCheckBox;
 
-    sf::Text originText;
-    sf::Text destinationText;
-
     sf::Text submitButtonLabel;
     sf::RectangleShape submitButton;
-
-    Pin originPin;
-    Pin destinationPin;
 
     toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
 
@@ -231,12 +286,25 @@ private:
     // UI Functions ///
     ///////////////////
 
-    void updateOriginPin(int x, int y) {
-        originPin.getSprite().setPosition(x, y);
+    void updatePinSprites() {
+        auto originPosition = originPin.getPixelPosition();
+        auto destinationPosition = destinationPin.getPixelPosition();
+        originPin.setSpritePosition({originPosition.x - viewport->left, originPosition.y - viewport->top});
+        destinationPin.setSpritePosition({destinationPosition.x - viewport->left, destinationPosition.y - viewport->top});
     }
 
-    void updateDestinationPin(int x, int y) {
-        destinationPin.getSprite().setPosition(x, y);
+    void updateOriginPin(double offsetLongitude, double offsetLatitude) {
+        auto pixelPosition = mapGeometry->toPixelVector({offsetLongitude, offsetLatitude});
+        originPin.setGeoPosition({offsetLongitude, offsetLatitude});
+        originPin.setPixelPosition(pixelPosition);
+        originPin.getSprite().setPosition(pixelPosition.x - viewport->left, pixelPosition.y - viewport->top);
+    }
+
+    void updateDestinationPin(double offsetLongitude, double offsetLatitude) {
+        auto position = mapGeometry->toPixelVector({offsetLongitude, offsetLatitude});
+        destinationPin.setGeoPosition({offsetLongitude, offsetLatitude});
+        destinationPin.setPixelPosition(position);
+        destinationPin.getSprite().setPosition(position.x - viewport->left, position.y - viewport->top);
     }
 
     void setOriginText(const double& globalLatitude, const double& globalLongitude) {
@@ -320,23 +388,23 @@ private:
         destinationPin.init("assets/images/pin_red.png");
     }
 
-    void initBackgroundBox(const float& width, const float& height, sf::RenderWindow& window) {
+    void initBackgroundBox(const float& width, const float& height) {
         backgroundBox.setSize(sf::Vector2f(width, height));
         backgroundBox.setFillColor(sf::Color(255, 255, 255, 220));
         backgroundBox.setOutlineColor(sf::Color(255, 165, 0, 200));
         backgroundBox.setOutlineThickness(-3);
-        backgroundBox.setPosition(0, window.getSize().x - height);
+        backgroundBox.setPosition(0, window->getSize().x - height);
     }
 
-    void initInputBoxes(sf::RenderWindow& window, float height) {
+    void initInputBoxes(float height) {
         originLabel.setFont(font);
         originLabel.setCharacterSize(15);
         originLabel.setFillColor(sf::Color::Black);
         originLabel.setString("A:");
-        originLabel.setPosition(backgroundBox.getPosition().x + 10, window.getSize().x - height + 15);
+        originLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 15);
         originInputBox.setSize(sf::Vector2f(backgroundBox.getSize().x - 50, 20));
         originInputBox.setFillColor(sf::Color::White);
-        originInputBox.setPosition(backgroundBox.getPosition().x + 30, window.getSize().x - height + 15);
+        originInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().x - height + 15);
         originInputBox.setOutlineColor(sf::Color(128, 128, 128));
         originInputBox.setOutlineThickness(1);
 
@@ -344,60 +412,60 @@ private:
         destinationLabel.setCharacterSize(15);
         destinationLabel.setFillColor(sf::Color::Black);
         destinationLabel.setString("B: ");
-        destinationLabel.setPosition(backgroundBox.getPosition().x + 10, window.getSize().x - height + 45);
+        destinationLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 45);
         destinationInputBox.setSize(sf::Vector2f(backgroundBox.getSize().x - 50, 20));
         destinationInputBox.setFillColor(sf::Color::White);
-        destinationInputBox.setPosition(backgroundBox.getPosition().x + 30, window.getSize().x - height + 45);
+        destinationInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().x - height + 45);
         destinationInputBox.setOutlineColor(sf::Color(128, 128, 128));
         destinationInputBox.setOutlineThickness(1);
     }
 
-    void initCheckBoxes(sf::RenderWindow& window, float height) {
+    void initCheckBoxes(float height) {
         dijkstraCheckBoxLabel.setFont(font);
         dijkstraCheckBoxLabel.setCharacterSize(15);
         dijkstraCheckBoxLabel.setFillColor(sf::Color::Black);
         dijkstraCheckBoxLabel.setString("Dijkstra:");
-        dijkstraCheckBoxLabel.setPosition(backgroundBox.getPosition().x + 10, window.getSize().x - height + 70);
+        dijkstraCheckBoxLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 70);
         dijkstraCheckBox.setSize(sf::Vector2f(10, 10));
         dijkstraCheckBox.setFillColor(sf::Color::White);
         dijkstraCheckBox.setOutlineColor(sf::Color(128, 128, 128));
         dijkstraCheckBox.setOutlineThickness(1);
-        dijkstraCheckBox.setPosition(dijkstraCheckBoxLabel.getPosition().x + dijkstraCheckBoxLabel.getGlobalBounds().width + 5, window.getSize().x - height + 75);
+        dijkstraCheckBox.setPosition(dijkstraCheckBoxLabel.getPosition().x + dijkstraCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 75);
 
         aStarCheckBoxLabel.setFont(font);
         aStarCheckBoxLabel.setCharacterSize(15);
         aStarCheckBoxLabel.setFillColor(sf::Color::Black);
         aStarCheckBoxLabel.setString("A*:");
-        aStarCheckBoxLabel.setPosition(dijkstraCheckBox.getPosition().x + dijkstraCheckBox.getSize().x + 10, window.getSize().x - height + 70);
+        aStarCheckBoxLabel.setPosition(dijkstraCheckBox.getPosition().x + dijkstraCheckBox.getSize().x + 10, window->getSize().x - height + 70);
         aStarCheckBox.setSize(sf::Vector2f(10, 10));
         aStarCheckBox.setFillColor(sf::Color::White);
         aStarCheckBox.setOutlineColor(sf::Color(128, 128, 128));
         aStarCheckBox.setOutlineThickness(1);
-        aStarCheckBox.setPosition(aStarCheckBoxLabel.getPosition().x + aStarCheckBoxLabel.getGlobalBounds().width + 5, window.getSize().x - height + 75);
+        aStarCheckBox.setPosition(aStarCheckBoxLabel.getPosition().x + aStarCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 75);
     }
 
-    void initTextElements(sf::RenderWindow& window, float height) {
+    void initTextElements(float height) {
         originText.setFont(font);
         originText.setCharacterSize(13);
         originText.setFillColor(sf::Color::Black);
-        originText.setPosition(originInputBox.getPosition().x + 5, window.getSize().x - height + 17);
+        originText.setPosition(originInputBox.getPosition().x + 5, window->getSize().x - height + 17);
         destinationText.setFont(font);
         destinationText.setCharacterSize(13);
         destinationText.setFillColor(sf::Color::Black);
-        destinationText.setPosition(destinationInputBox.getPosition().x + 5, window.getSize().x - height + 47);
+        destinationText.setPosition(destinationInputBox.getPosition().x + 5, window->getSize().x - height + 47);
     }
 
-    void initSubmitButton(sf::RenderWindow& window, float height, float width) {
+    void initSubmitButton(float height, float width) {
         submitButton.setSize(sf::Vector2f(45, 20));
         submitButton.setFillColor(sf::Color::Magenta);
         submitButton.setOutlineColor(sf::Color::Black);
         submitButton.setOutlineThickness(1);
-        submitButton.setPosition(width - 60, window.getSize().x - height + 70);
+        submitButton.setPosition(width - 60, window->getSize().x - height + 70);
 
         submitButtonLabel.setFont(font);
         submitButtonLabel.setCharacterSize(15);
         submitButtonLabel.setFillColor(sf::Color::Black);
         submitButtonLabel.setString("Go");
-        submitButtonLabel.setPosition(width - 47, window.getSize().x - height + 70);
+        submitButtonLabel.setPosition(width - 47, window->getSize().x - height + 70);
     }
 };
