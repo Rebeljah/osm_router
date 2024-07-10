@@ -58,14 +58,12 @@ public:
     Should be called at the start of the app because it requires values that
     are not available until the App class is being constructed
     */
-    void init(sf::RenderWindow* window, Viewport* viewport, MapGeometry* mapGeometry, int width, int height, double pixelsPerDegree)
+    void init(sf::RenderWindow* window, Viewport* viewport, MapGeometry* mapGeometry, int width, int height)
     {
         // Window needs to be set before anything else, otherwise segfaults occur.
         this->window = window;
         this->viewport = viewport;
         this->mapGeometry = mapGeometry;
-        this->pixelsPerDegree = pixelsPerDegree;
-        this->degreesPerPixel = 1 / pixelsPerDegree;
         this->height = height;
         this->width = width;
         originFieldSelected = true;
@@ -173,23 +171,19 @@ public:
      * @param mouseEvent: Mouse clicks on the navbox elements.
     */
     void updateCoordinates(sf::Event mouseEvent) {
-        int x = mouseEvent.mouseButton.x;
-        int y = mouseEvent.mouseButton.y;
-
-        sf::Vector2f mousePos = sf::Vector2f(x, y);
-        sf::Vector2f newMousePos = viewport->viewportPostoMapPos(mousePos);
-
         // Used to update pins if the fields are filled.
-        double offsetLongitude = pixelsToDegrees(newMousePos.x, degreesPerPixel);
-        double offsetLatitude = pixelsToDegrees(newMousePos.y, degreesPerPixel);
+        sf::Vector2<double> clickOffsetLonLat = mapGeometry->toGeoVector(
+            sf::Vector2<double>(viewport->windowPositionToMapPosition(
+                {mouseEvent.mouseButton.x, mouseEvent.mouseButton.y})
+            )
+        );
 
         // Used for a global coordinate system appearance within input fields.
-        double globalLongitude = *config["map"]["bbox_left"].value<double>() + offsetLongitude;
-        double globalLatitude = *config["map"]["bbox_top"].value<double>() - offsetLatitude;
+        sf::Vector2<double> clickGlobalLonLat = mapGeometry->unoffsetGeoVector(clickOffsetLonLat);
         
         if (originFieldSelected) {
-            setOriginText(globalLatitude, globalLongitude);
-            updateOriginPin(offsetLongitude, offsetLatitude);
+            setOriginText(clickGlobalLonLat.y, clickGlobalLonLat.x);
+            updateOriginPin(clickOffsetLonLat.x, clickOffsetLonLat.y);
             deactivateOriginField();
 
             if (!destinationFieldFilled) {
@@ -199,13 +193,13 @@ public:
         else if (destinationFieldSelected) {
             
             if (originFieldFilled) {
-                setDestinationText(globalLatitude, globalLongitude);
-                updateDestinationPin(offsetLongitude, offsetLatitude);
+                setDestinationText(clickGlobalLonLat.y, clickGlobalLonLat.x);
+                updateDestinationPin(clickOffsetLonLat.x, clickOffsetLonLat.y);
                 deactivateDestinationField();
             }
             else {
-                setOriginText(globalLatitude, globalLongitude);
-                updateOriginPin(offsetLongitude, offsetLatitude);
+                setOriginText(clickGlobalLonLat.y, clickGlobalLonLat.x);
+                updateOriginPin(clickOffsetLonLat.x, clickOffsetLonLat.y);
                 deactivateOriginField();
                 deactivateDestinationField();
             }
@@ -251,8 +245,6 @@ private:
     bool originFieldFilled;
     bool destinationFieldFilled;
 
-    double pixelsPerDegree;
-    double degreesPerPixel;
     float height;
     float width;
 

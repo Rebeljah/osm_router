@@ -50,7 +50,7 @@ public:
 
         window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
 
-        navBox.init(&window, &viewport, &mapGeometry, 250, 130, pixelsPerDegree);
+        navBox.init(&window, &viewport, &mapGeometry, 250, 130);
     }
 
     ~App()

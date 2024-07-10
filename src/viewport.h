@@ -111,7 +111,7 @@ public:
     @param xy: vector of the point relative to the viewport's topleft
     @returns an xy vector relative to the topleft origin of the bounding area
     */
-    sf::Vector2f viewportPostoMapPos(sf::Vector2f xy)
+    sf::Vector2f windowPositionToMapPosition(sf::Vector2f xy)
     {
         return { xy.x + left, xy.y + top };
     }
