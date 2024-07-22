@@ -7,10 +7,11 @@
 
 #include "geometry.h"
 #include "viewport.h"
-#include "chunk.h"
 #include "chunk_sprite.h"
 #include "nav_box.h"
 #include "toasts.h"
+
+#include "graph.h"
 
 class App
 {
@@ -25,6 +26,8 @@ public:
         Degree viewportW = *config["viewport"]["default_w"].value<double>();
         Degree viewportH = *config["viewport"]["default_h"].value<double>();
         Degree chunkSize = *config["map"]["chunk_size"].value<double>();
+
+        mapGraph.load("./db/map.db");
 
         mapGeometry = MapGeometry(
             800 / viewportW,  // pixels per degree
@@ -47,10 +50,11 @@ public:
 
         navBox.init(250, 140, window);
 
-        chunkLoader.start("./db/map.db");
-        chunkSpriteLoader.init(&chunkLoader, &mapGeometry);
+        chunkSpriteLoader.init(&mapGeometry, "./db/map.db");
 
         window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
+
+        clock.restart();
     }
 
     ~App()
@@ -163,4 +167,5 @@ private:
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
     MapGeometry mapGeometry;
+    MapGraph mapGraph;
 };
