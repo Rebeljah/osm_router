@@ -8,6 +8,7 @@
 #include "node.h"
 #include "viewport.h"
 #include "geometry.h"
+#include <iostream>
 
 enum class AlgoName
 {
@@ -80,6 +81,7 @@ public:
         initCheckBoxes(height);
         initTextElements(height);
         initSubmitButton(height, width);
+        initSubmitResultText();
         activateOriginField();
         selectDijkstra();
         setPlaceHolders();
@@ -114,7 +116,6 @@ public:
         else if (aStarCheckBox.getGlobalBounds().contains(x, y)) {
             selectAStar();
         }
-
         // Only one field can be active at a time.
         else if (originInputBox.getGlobalBounds().contains(x,y)) {
             activateOriginField();
@@ -129,12 +130,32 @@ public:
             }
         }
 
-        // Submitting should 'unfocus' the coordinate fields.
+        // Submitting should 'unfocus' the coordinate fields,
+        // And if both fields have been filled, call the chosen algorithm
+        // To calculate the shortest path.
         else if (submitButton.getGlobalBounds().contains(x, y))
         {
             deactivateOriginField();
             deactivateDestinationField();
             onSubmitCallback(offsetLonLatOrigin, offsetLonLatDestination, selectedAlgorithm);
+            setSubmissionResultText();
+
+            // If both fields are filled, call the selected algorithm
+            if (originFieldFilled && destinationFieldFilled)
+            {
+                // TODO Get the nodes closest to the coordinates in the pin sprites
+                // and call the selected algorithm using them.
+
+                if (AlgoName::Dijkstras == getSelectedAlgorithm())
+                {
+                    // TODO Call Dijkstra's algorithm
+
+                }
+                else if (AlgoName::AStar == getSelectedAlgorithm())
+                {
+                    // TODO Call A* algorithm
+                }
+            }
         }
     }
     
@@ -230,6 +251,7 @@ public:
         window.draw(aStarCheckBox);
         window.draw(submitButton);
         window.draw(submitButtonLabel);
+        window.draw(submissionResultText);
 
         updatePinSprites();
 
@@ -282,6 +304,8 @@ private:
 
     sf::Text submitButtonLabel;
     sf::RectangleShape submitButton;
+
+    sf::Text submissionResultText;
 
     toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
 
@@ -360,6 +384,20 @@ private:
         else {
             originText.setString("Click on map to choose origin");
             destinationText.setString("");
+        }
+    }
+
+    // Update the submit result text field depending on the result of the submission
+    void setSubmissionResultText()
+    {
+        if (originFieldFilled && destinationFieldFilled)
+        {
+            // Call the chosen algorithm if both fields are filled.
+            submissionResultText.setString("Calculating shortest path...");
+        }
+        else if (!(originFieldFilled && destinationFieldFilled)) {
+            // TODO Maybe a toast message?
+            submissionResultText.setString("Error: Both fields not filled.");
         }
     }
 
@@ -465,12 +503,19 @@ private:
         submitButton.setFillColor(sf::Color::Magenta);
         submitButton.setOutlineColor(sf::Color::Black);
         submitButton.setOutlineThickness(1);
-        submitButton.setPosition(width - 60, window->getSize().x - height + 70);
+        submitButton.setPosition(width - 65, window->getSize().x - height + 70);
 
         submitButtonLabel.setFont(font);
         submitButtonLabel.setCharacterSize(15);
         submitButtonLabel.setFillColor(sf::Color::Black);
         submitButtonLabel.setString("Go");
-        submitButtonLabel.setPosition(width - 47, window->getSize().x - height + 70);
+        submitButtonLabel.setPosition(width - 52, window->getSize().x - height + 70);
+    }
+
+    void initSubmitResultText() {
+        submissionResultText.setFont(font);
+        submissionResultText.setCharacterSize(13);
+        submissionResultText.setFillColor(sf::Color::Black);
+        submissionResultText.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 95);
     }
 };
