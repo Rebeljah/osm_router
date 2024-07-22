@@ -53,7 +53,10 @@ public:
 
         window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
 
-        navBox.init(&window, &viewport, &mapGeometry, 250, 130);
+        navBox.init(&window, &viewport, &mapGeometry, 250, 130, [this](sf::Vector2<double> origin, sf::Vector2<double> destination, AlgoName algorithm)
+            {
+                this->onNavBoxSubmit(origin, destination, algorithm);
+            });
     }
 
     ~App()
@@ -70,6 +73,11 @@ public:
             update();
             render();
         }
+    }
+
+    void onNavBoxSubmit(sf::Vector2<double> offsetLonLatOrigin, sf::Vector2<double> offsetLonLatDestination, AlgoName algorithm)
+    {
+        std::cout << "submitted with origin: " << offsetLonLatOrigin.x << " " << offsetLonLatOrigin.y << " and destination: " << offsetLonLatDestination.x << " " << offsetLonLatDestination.y << std::endl;
     }
 
 private:

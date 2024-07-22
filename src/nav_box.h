@@ -1,9 +1,13 @@
+#include <iostream>
+#include <functional>
+
 #include <SFML/Graphics.hpp>
+
 #include "tomlplusplus/toml.hpp"
+
 #include "node.h"
 #include "viewport.h"
 #include "geometry.h"
-#include <iostream>
 
 enum class AlgoName
 {
@@ -58,7 +62,7 @@ public:
     Should be called at the start of the app because it requires values that
     are not available until the App class is being constructed
     */
-    void init(sf::RenderWindow* window, Viewport* viewport, MapGeometry* mapGeometry, int width, int height)
+    void init(sf::RenderWindow* window, Viewport* viewport, MapGeometry* mapGeometry, int width, int height, std::function<void(sf::Vector2<double>, sf::Vector2<double>, AlgoName)> onSubmitCallback)
     {
         // Window needs to be set before anything else, otherwise segfaults occur.
         this->window = window;
@@ -80,6 +84,8 @@ public:
         selectDijkstra();
         setPlaceHolders();
         initPins();
+
+        this->onSubmitCallback = onSubmitCallback;
     }
 
     sf::RectangleShape getBox()
@@ -128,6 +134,7 @@ public:
         {
             deactivateOriginField();
             deactivateDestinationField();
+            onSubmitCallback(offsetLonLatOrigin, offsetLonLatDestination, selectedAlgorithm);
         }
     }
     
@@ -245,6 +252,10 @@ private:
     bool originFieldFilled;
     bool destinationFieldFilled;
 
+    std::function<void(sf::Vector2<double>, sf::Vector2<double>, AlgoName)> onSubmitCallback;
+    sf::Vector2<double> offsetLonLatOrigin;
+    sf::Vector2<double> offsetLonLatDestination;
+
     float height;
     float width;
 
@@ -290,6 +301,7 @@ private:
         originPin.setGeoPosition({offsetLongitude, offsetLatitude});
         originPin.setPixelPosition(pixelPosition);
         originPin.getSprite().setPosition(pixelPosition.x - viewport->left, pixelPosition.y - viewport->top);
+        this->offsetLonLatOrigin = {offsetLongitude, offsetLatitude};
     }
 
     void updateDestinationPin(double offsetLongitude, double offsetLatitude) {
@@ -297,6 +309,7 @@ private:
         destinationPin.setGeoPosition({offsetLongitude, offsetLatitude});
         destinationPin.setPixelPosition(position);
         destinationPin.getSprite().setPosition(position.x - viewport->left, position.y - viewport->top);
+        this->offsetLonLatDestination = {offsetLongitude, offsetLatitude};
     }
 
     void setOriginText(const double& globalLatitude, const double& globalLongitude) {
