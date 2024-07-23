@@ -1,6 +1,7 @@
 #pragma once
 
 #include <SFML/Graphics.hpp>
+#include <utility>
 
 /**
  * Convert decimal degrees to meters.
@@ -131,6 +132,20 @@ public:
     const Rectangle<double> getDisplayBounds() const
     {
         return mapDisplayBounds;
+    }
+
+    /**
+     * Get the row and column of a chunk
+     *
+     * @param offsetLatitude: offset latitude in degrees
+     * @param offsetLongitude: offset longitude in degrees
+     * @returns A std pair containing row = first and column = second
+    */
+    std::pair<int, int> getChunkRowCol(double offsetLatitude, double offsetLongitude) const {
+        std::pair<int, int> chunkCoordinate;
+        chunkCoordinate.first = int(offsetLatitude / getChunkGeoSize());
+        chunkCoordinate.second = int(offsetLongitude / getChunkGeoSize());
+        return chunkCoordinate;
     }
 
     /**
