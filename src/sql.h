@@ -18,11 +18,11 @@ namespace sql
 
     struct Edge
     {
-        int id;
-        int osmId;
+        long long int id;
+        long long int osmId;
         std::string chunkId;
-        int sourceNodeId;
-        int targetNodeId;
+        long long int sourceNodeId;
+        long long int targetNodeId;
         double pathLengthMeters;
         int pathFoot;
         int pathCarFwd;
@@ -35,7 +35,7 @@ namespace sql
 
     struct Node
     {
-        int id;
+        long long int id;
         std::string chunkId;
         double offsetLon;
         double offsetLat;

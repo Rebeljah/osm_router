@@ -7,11 +7,12 @@
 
 #include "geometry.h"
 #include "viewport.h"
-#include "chunk.h"
 #include "chunk_sprite.h"
 #include "nav_box.h"
 #include <iostream>
 #include "toasts.h"
+
+#include "graph.h"
 
 class App
 {
@@ -27,10 +28,10 @@ public:
         Degree viewportH = *config["viewport"]["default_h"].value<double>();
         Degree chunkSize = *config["map"]["chunk_size"].value<double>();
 
-        double pixelsPerDegree = 800 / viewportW;
+        mapGraph.load("./db/map.db");
 
         mapGeometry = MapGeometry(
-            pixelsPerDegree,  // pixels per degree
+            800 / viewportW,  // pixels per degree
             { mapTop, mapLeft, mapRight - mapLeft, mapTop - mapBottom },  // map geo area
             chunkSize // chunk geo size
         );
@@ -48,15 +49,17 @@ public:
             )
         ); 
 
-        chunkLoader.start("./db/map.db");
-        chunkSpriteLoader.init(&chunkLoader, &mapGeometry);
+        chunkSpriteLoader.init(&mapGeometry, "./db/map.db");
 
         window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
+
 
         navBox.init(&window, &viewport, &mapGeometry, 250, 130, [this](sf::Vector2<double> origin, sf::Vector2<double> destination, AlgoName algorithm)
             {
                 this->onNavBoxSubmit(origin, destination, algorithm);
             });
+
+        clock.restart();
     }
 
     ~App()
@@ -178,4 +181,5 @@ private:
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
     MapGeometry mapGeometry;
+    MapGraph mapGraph;
 };
