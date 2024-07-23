@@ -139,23 +139,6 @@ public:
             deactivateDestinationField();
             onSubmitCallback(offsetLonLatOrigin, offsetLonLatDestination, selectedAlgorithm);
             setSubmissionResultText();
-
-            // If both fields are filled, call the selected algorithm
-            if (originFieldFilled && destinationFieldFilled)
-            {
-                // TODO Get the nodes closest to the coordinates in the pin sprites
-                // and call the selected algorithm using them.
-
-                if (AlgoName::Dijkstras == getSelectedAlgorithm())
-                {
-                    // TODO Call Dijkstra's algorithm
-
-                }
-                else if (AlgoName::AStar == getSelectedAlgorithm())
-                {
-                    // TODO Call A* algorithm
-                }
-            }
         }
     }
     
@@ -263,6 +246,15 @@ public:
         }
     }
 
+    AlgoName getSelectedAlgorithm()
+    {
+        return selectedAlgorithm;
+    }
+
+    bool isValidSubmission() {
+        return (originFieldFilled && destinationFieldFilled);
+    }
+
 private:
     Viewport *viewport;
     sf::RenderWindow *window;
@@ -344,11 +336,6 @@ private:
     void setDestinationText(const double& globalLatitude, const double& globalLongitude) {
         destinationText.setString(std::to_string(globalLatitude) + ", " + std::to_string(globalLongitude));
         destinationFieldFilled = true;
-    }
-
-    AlgoName getSelectedAlgorithm()
-    {
-        return selectedAlgorithm;
     }
 
     void activateOriginField() {
