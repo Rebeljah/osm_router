@@ -38,7 +38,7 @@ public:
         // load all nodes from the db into graph
         for (sql::Node node : storage.iterate<sql::Node>())
         {
-            nodes.push_back(GraphNode{node.id, {}});
+            nodes.push_back(GraphNode{node, {}});
             nodeSQLIdToNodeIndex.emplace(node.id, nodes.size() - 1);
 
             int chunkRow = std::stoi(splitString(node.chunkId, ",")[0]);
