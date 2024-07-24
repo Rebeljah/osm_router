@@ -17,6 +17,7 @@ using namespace std;
  * @return The shortest path between the two nodes
 */
 vector<GraphNodeIndex> Dijkstra(GraphNodeIndex startNodeIndex, GraphNodeIndex endNodeIndex, MapGraph& graph) {
+    // TODO Consider visited set to avoid revisiting nodes.
 
     // TODO Could a hash table be better for the average travel distance?
     vector<long long int> weights(graph.getNodeCount(), 9999999999999);
