@@ -13,6 +13,8 @@
 #include "toasts.h"
 
 #include "graph.h"
+#include "algorithms.h"
+#include <utility>
 
 class App
 {
@@ -80,7 +82,26 @@ public:
 
     void onNavBoxSubmit(sf::Vector2<double> offsetLonLatOrigin, sf::Vector2<double> offsetLonLatDestination, AlgoName algorithm)
     {
-        std::cout << "submitted with origin: " << offsetLonLatOrigin.x << " " << offsetLonLatOrigin.y << " and destination: " << offsetLonLatDestination.x << " " << offsetLonLatDestination.y << std::endl;
+        if (navBox.isValidSubmission()) {
+            std::cout << "submitted with origin: " << offsetLonLatOrigin.x << " " << offsetLonLatOrigin.y << " and destination: " << offsetLonLatDestination.x << " " << offsetLonLatDestination.y << std::endl;
+            vector<GraphNodeIndex> path = findShortestPath(offsetLonLatOrigin, offsetLonLatDestination, algorithm, mapGraph, mapGeometry);
+            
+            if (path.empty()) {
+                std::cout << "No path exists." << std::endl;
+            }
+            else {
+                // TESTING: This loop prints the path to the console with global coordinates
+                // TODO: Use the returned path to render the path on the map with contrasting color and/or some other way to easily see it.
+                for (auto e : path) {
+                    auto node = mapGraph.getNode(e);
+                    auto globalLonLat = mapGeometry.unoffsetGeoVector({node.data.offsetLon, node.data.offsetLat});
+                    std::cout << "Node: " << e << " at " << globalLonLat.y << " " << globalLonLat.x << std::endl;
+                }
+            }
+        }
+        else {
+            std::cout << "Invalid submission." << std::endl;
+        }
     }
 
 private:
@@ -98,11 +119,6 @@ private:
                 viewport.controlPanning(event);
                 navBox.handleKeyPress(event);
             }
-
-            /*
-            TODO: mouse-click to insert the closest nodes into origin-destination fields
-                  that will be used for solving the shortest path problem.
-            */
 
             if (event.type == sf::Event::MouseButtonPressed)
             {
