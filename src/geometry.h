@@ -237,7 +237,7 @@ public:
     {
         auto res = sf::Vector2<double>(geoVector);
         res.x = geoVector.x + mapGeoBounds.left;
-        res.y = geoVector.y + mapGeoBounds.bottom();
+        res.y = mapGeoBounds.top - geoVector.y;
         return res;
     }
 
