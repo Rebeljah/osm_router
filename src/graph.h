@@ -15,7 +15,7 @@ struct GraphEdge
 {
     long long int sqlID;
     GraphNodeIndex to;
-    int weight;
+    int weight; 
     bool isPrimary;
 };
 
@@ -111,6 +111,18 @@ public:
         }
 
         return closestNodeIndex;
+    }
+
+    GraphNode& getNode(GraphNodeIndex nodeIndex) {
+        return nodes[nodeIndex];
+    }
+
+    GraphEdge& getEdge(GraphEdgeIndex edgeIndex) {
+        return edges[edgeIndex];
+    }
+
+    int getNodeCount() {
+        return nodes.size();
     }
 
 private:
