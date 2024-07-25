@@ -83,18 +83,10 @@ public:
     void onNavBoxSubmit(sf::Vector2<double> offsetLonLatOrigin, sf::Vector2<double> offsetLonLatDestination, AlgoName algorithm)
     {
         std::cout << "submitted with origin: " << offsetLonLatOrigin.x << " " << offsetLonLatOrigin.y << " and destination: " << offsetLonLatDestination.x << " " << offsetLonLatDestination.y << std::endl;
-        vector<GraphNodeIndex> path = findShortestPath(offsetLonLatOrigin, offsetLonLatDestination, algorithm, mapGraph, mapGeometry);
+        vector<GraphEdgeIndex> path = findShortestPath(offsetLonLatOrigin, offsetLonLatDestination, algorithm, mapGraph, mapGeometry);
         if (path.empty()) {
             toaster.spawnToast(window.getSize().x / 2, "Could not find a path", "errnopath", sf::seconds(5));
             return;
-        }
-
-        // TESTING: This loop prints the path to the console with global coordinates
-        // TODO: Use the returned path to render the path on the map with contrasting color and/or some other way to easily see it.
-        for (auto e : path) {
-            auto node = mapGraph.getNode(e);
-            auto globalLonLat = mapGeometry.unoffsetGeoVector({node.data.offsetLon, node.data.offsetLat});
-            std::cout << "Node: " << e << " at " << globalLonLat.y << " " << globalLonLat.x << std::endl;
         }
     }
 
