@@ -99,15 +99,17 @@ public:
     {
         if (isPanningIn)
         {
-            setPosition(getPosition().x, getPosition().y + panVelocity * deltaTime);
+            setPosition(getPosition() + sf::Vector2f(0, panVelocity * deltaTime));
             if (getPosition().y >= finalPosition.y)
+                setPosition(finalPosition);
                 isPanningIn = false;
         }
         else if (isPanningOut)
         {
-            setPosition(getPosition().x, getPosition().y - panVelocity * deltaTime);
+            setPosition(getPosition() - sf::Vector2f(0, panVelocity * deltaTime));
             if (getPosition().y < 0)
             {
+                setPosition(getPosition().x, -1);
                 isPanningOut = false;
             }
         }
