@@ -31,6 +31,7 @@ struct PointPath
 {
     vector<sf::Vector2<double>> points;
 
+    PointPath() {}
     PointPath(string wktLinestring)
     {
         // string "4.3 1.2, 4.4 1.0," -> vector { {4.3, 1.2}, {4.4, 1.0} }
@@ -43,7 +44,15 @@ struct PointPath
         }
     }
 
-    PointPath() {}
+    void extend(const PointPath &other)
+    {
+        points.insert(points.end(), other.points.begin(), other.points.end());
+    }
+
+    void reverse()
+    {
+        std::reverse(points.begin(), points.end());
+    }
 
     /*
     Get a lat / lon rectangle that bounds the path. The left and right will be the min and max
@@ -109,5 +118,31 @@ struct Edge
         {
             color = sf::Color(198, 202, 210, 255);
         }
+    }
+};
+
+struct Route
+{
+    Route() {}
+    Route(PointPath path, MapGeometry *mapGeometry) : path(path), mapGeometry(mapGeometry) {}
+
+    PointPath path;
+    MapGeometry *mapGeometry;
+
+    void render(sf::RenderWindow &window, Rectangle<double> viewportRect)
+    {
+        sf::VertexArray pathVertices(sf::LineStrip, path.points.size());
+        for (int i = 0; i < path.points.size(); ++i)
+        {
+            // convert the offset lon, lat to a map-relative pixel coordinate
+            auto pointDisplayCoordinate = mapGeometry->toPixelVector(path.points[i]);
+            // offset the coordinate to the viewport display rectangle
+            pointDisplayCoordinate -= { viewportRect.left, viewportRect.top };
+
+            pathVertices[i].color = sf::Color::Blue;
+            pathVertices[i].position = sf::Vector2f(pointDisplayCoordinate);
+        }
+        // draw the completed path
+        window.draw(pathVertices);
     }
 };

@@ -113,6 +113,11 @@ public:
         return closestNodeIndex;
     }
 
+    bool isDataLoaded() const
+    {
+        return isLoaded;
+    }
+
     GraphNode& getNode(GraphNodeIndex nodeIndex) {
         return nodes[nodeIndex];
     }

@@ -11,5 +11,5 @@ avg_chunk_size = 0.112764 # megabytes
 chunk_cache_size = 512    # megabytes
 
 [viewport]
-default_w = 0.05 #degrees
-default_h = 0.05 #degrees
+default_w = 0.15 #degrees
+default_h = 0.15 #degrees
