@@ -75,6 +75,9 @@ public:
      */
     void remove()
     {
+        if (wasRemoved)
+            return;
+
         isPanningOut = true;
         isPanningIn = false;
         wasRemoved = true;
@@ -101,8 +104,10 @@ public:
         {
             setPosition(getPosition() + sf::Vector2f(0, panVelocity * deltaTime));
             if (getPosition().y >= finalPosition.y)
+            {
                 setPosition(finalPosition);
                 isPanningIn = false;
+            }
         }
         else if (isPanningOut)
         {
@@ -204,7 +209,7 @@ public:
      */
     void update(const float &deltaTime)
     {
-        vector<std::pair<const string &, Toast *>> removedToasts;
+        vector<std::pair<string, Toast *>> removedToasts;
 
         for (auto &[id, toast] : toasts)
         {

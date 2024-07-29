@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <chrono>
+#include <iostream>
 
 #include "tomlplusplus/toml.hpp"
 
@@ -9,8 +10,8 @@
 #include "viewport.h"
 #include "chunk_sprite.h"
 #include "nav_box.h"
-#include <iostream>
 #include "toasts.h"
+#include "pubsub.h"
 
 #include "graph.h"
 #include "algorithms.h"
@@ -30,13 +31,22 @@ public:
         Degree viewportH = *config["viewport"]["default_h"].value<double>();
         Degree chunkSize = *config["map"]["chunk_size"].value<double>();
 
-        mapGraph.load("./db/map.db");
+        // connect the custom event queue to the navbox
+        navBox.addSubscriber(&eventQueue, ps::EventType::NavBoxSubmitted);
+        
+        // load map data in background. Done event will be handled in event loop.
+        std::thread([this](){
+            this->mapGraph.load("./db/map.db");
+            this->eventQueue.pushEvent(ps::Event(ps::EventType::MapDataLoaded));
+        }).detach();
 
         mapGeometry = MapGeometry(
             800 / viewportW,  // pixels per degree
             { mapTop, mapLeft, mapRight - mapLeft, mapTop - mapBottom },  // map geo area
             chunkSize // chunk geo size
         );
+
+        route.mapGeometry = &mapGeometry;
 
         sf::Vector2<double> viewportGeoSize = {
              *config["viewport"]["default_w"].value<double>(),
@@ -55,11 +65,7 @@ public:
 
         window.setFramerateLimit(*config["graphics"]["framerate"].value<int>());
 
-
-        navBox.init(&window, &viewport, &mapGeometry, 250, 130, [this](sf::Vector2<double> origin, sf::Vector2<double> destination, AlgoName algorithm)
-            {
-                this->onNavBoxSubmit(origin, destination, algorithm);
-            });
+        navBox.init(&window, &viewport, &mapGeometry, 250, 130);
 
         clock.restart();
     }
@@ -77,30 +83,6 @@ public:
             processEvents();
             update();
             render();
-        }
-    }
-
-    void onNavBoxSubmit(sf::Vector2<double> offsetLonLatOrigin, sf::Vector2<double> offsetLonLatDestination, AlgoName algorithm)
-    {
-        if (navBox.isValidSubmission()) {
-            std::cout << "submitted with origin: " << offsetLonLatOrigin.x << " " << offsetLonLatOrigin.y << " and destination: " << offsetLonLatDestination.x << " " << offsetLonLatDestination.y << std::endl;
-            vector<GraphNodeIndex> path = findShortestPath(offsetLonLatOrigin, offsetLonLatDestination, algorithm, mapGraph, mapGeometry);
-            
-            if (path.empty()) {
-                std::cout << "No path exists." << std::endl;
-            }
-            else {
-                // TESTING: This loop prints the path to the console with global coordinates
-                // TODO: Use the returned path to render the path on the map with contrasting color and/or some other way to easily see it.
-                for (auto e : path) {
-                    auto node = mapGraph.getNode(e);
-                    auto globalLonLat = mapGeometry.unoffsetGeoVector({node.data.offsetLon, node.data.offsetLat});
-                    std::cout << "Node: " << e << " at " << globalLonLat.y << " " << globalLonLat.x << std::endl;
-                }
-            }
-        }
-        else {
-            std::cout << "Invalid submission." << std::endl;
         }
     }
 
@@ -130,6 +112,73 @@ private:
                 else {
                     navBox.updateCoordinates(event);
                 }
+            }
+        }
+
+        /*
+        Listen for custom events that were pushed to the ps::EventQueue. List of
+        event types and corresponding data types to access are in the ps namespace
+        in pubsub.h. Depending on the event type, different variants of the event.data
+        will be active. To extract the data struct, use std::get<DataType>(event.data).
+        Refer to the comments in the ps::EventType enum to determine which `DataType` to access.
+        */
+        while (!eventQueue.empty())
+        {
+            ps::Event event = eventQueue.popNext();
+
+            if (event.type == ps::EventType::MapDataLoaded)
+            {
+                toaster.spawnToast(window.getSize().x / 2, "Map data loaded! Let's go!", "loading_data", sf::seconds(3));
+            }
+            else if (event.type == ps::EventType::NavBoxSubmitted)
+            {
+                if (!mapGraph.isDataLoaded())
+                {
+                    toaster.spawnToast(window.getSize().x / 2, "Loading data, please wait...", "loading_data", sf::seconds(2.25));
+                    continue;
+                }
+
+                auto navBoxForm = std::get<ps::Event::NavBoxForm>(event.data);
+                sf::Vector2<double> origin = navBoxForm.origin;
+                sf::Vector2<double> destination = navBoxForm.destination;
+                AlgoName algoName = (AlgoName)navBoxForm.algoName;
+
+                toaster.spawnToast(window.getSize().x/2, "Finding a route...", "finding_route");
+                std::thread([this, origin, destination, algoName]()
+                    {
+                        auto startTime = std::chrono::high_resolution_clock().now();
+                        vector<GraphNodeIndex> path = findShortestPath(origin, destination, algoName, mapGraph, mapGeometry);
+                        auto endTime = std::chrono::high_resolution_clock().now();
+                        // push an event with the completed route data
+                        ps::Event event(ps::EventType::RouteCompleted);
+                        event.data = ps::Event::CompleteRoute(path, std::chrono::duration(endTime - startTime));
+                        this->eventQueue.onEvent(event);
+                    }).detach();
+            }
+            else if (event.type == ps::EventType::RouteCompleted)
+            {
+                auto data = std::get<ps::Event::CompleteRoute>(event.data);
+
+                PointPath routePath;
+
+                auto storage = sql::loadStorage("./db/map.db");
+                for (GraphEdgeIndex idx : data.edgeIndices)
+                {
+                    GraphEdge graphEdge = mapGraph.getEdge(idx);
+                    sql::Edge edge = storage.get<sql::Edge>(graphEdge.sqlID);
+                    PointPath edgePath(edge.pathOffsetPoints);
+                    if (!graphEdge.isPrimary)
+                    {
+                        edgePath.reverse();
+                    }
+                    routePath.extend(edgePath);
+                }
+
+                route.path = routePath;
+
+                toaster.removeToast("finding_route");
+                std::cout << data.edgeIndices.size() << "edges " << std::endl;
+                toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds", "route_found", sf::seconds(7));
             }
         }
     }
@@ -181,7 +230,7 @@ private:
         // Draws a navigation box at the bottom-left of the screen
         navBox.draw(window);
         toaster.render(window);
-
+        route.render(window, (Rectangle<double>)viewport);
         window.display();
     }
 
@@ -193,9 +242,12 @@ private:
     Viewport viewport;
     NavBox navBox;
     Toaster toaster;
+    Route route;
 
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
     MapGeometry mapGeometry;
     MapGraph mapGraph;
+
+    ps::EventQueue eventQueue;
 };

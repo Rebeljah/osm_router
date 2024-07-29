@@ -2,13 +2,12 @@
 #include <functional>
 
 #include <SFML/Graphics.hpp>
-
 #include "tomlplusplus/toml.hpp"
 
 #include "node.h"
 #include "viewport.h"
 #include "geometry.h"
-#include <iostream>
+#include "pubsub.h"
 
 enum class AlgoName
 {
@@ -56,14 +55,14 @@ private:
     sf::Vector2<double> offsetGeoPosition;
 };
 
-class NavBox
+class NavBox : public ps::Publisher
 {
 public:
     /*
     Should be called at the start of the app because it requires values that
     are not available until the App class is being constructed
     */
-    void init(sf::RenderWindow* window, Viewport* viewport, MapGeometry* mapGeometry, int width, int height, std::function<void(sf::Vector2<double>, sf::Vector2<double>, AlgoName)> onSubmitCallback)
+    void init(sf::RenderWindow* window, Viewport* viewport, MapGeometry* mapGeometry, int width, int height)
     {
         // Window needs to be set before anything else, otherwise segfaults occur.
         this->window = window;
@@ -86,8 +85,6 @@ public:
         selectDijkstra();
         setPlaceHolders();
         initPins();
-
-        this->onSubmitCallback = onSubmitCallback;
     }
 
     sf::RectangleShape getBox()
@@ -137,7 +134,11 @@ public:
         {
             deactivateOriginField();
             deactivateDestinationField();
-            onSubmitCallback(offsetLonLatOrigin, offsetLonLatDestination, selectedAlgorithm);
+
+            ps::Event event(ps::EventType::NavBoxSubmitted);
+            event.data = ps::Event::NavBoxForm(offsetLonLatOrigin, offsetLonLatDestination, (int)selectedAlgorithm);
+            emitEvent(event);
+
             setSubmissionResultText();
         }
     }
@@ -266,7 +267,6 @@ private:
     bool originFieldFilled;
     bool destinationFieldFilled;
 
-    std::function<void(sf::Vector2<double>, sf::Vector2<double>, AlgoName)> onSubmitCallback;
     sf::Vector2<double> offsetLonLatOrigin;
     sf::Vector2<double> offsetLonLatDestination;
 
