@@ -125,6 +125,10 @@ public:
         return nodes.size();
     }
 
+    int getEdgeCount() {
+        return edges.size();
+    }
+
 private:
     std::unordered_map<long long int, int> nodeSQLIdToNodeIndex;
     std::vector<GraphNode> nodes;

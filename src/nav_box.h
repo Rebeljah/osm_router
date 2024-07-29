@@ -137,8 +137,16 @@ public:
         {
             deactivateOriginField();
             deactivateDestinationField();
-            onSubmitCallback(offsetLonLatOrigin, offsetLonLatDestination, selectedAlgorithm);
-            setSubmissionResultText();
+
+            if (isValidSubmission())
+            {
+                submissionResultText.setString("Calculating shortest path...");
+                onSubmitCallback(offsetLonLatOrigin, offsetLonLatDestination, selectedAlgorithm);
+            }
+            else
+            {
+                submissionResultText.setString("Error: Both fields not filled.");
+            }
         }
     }
     
@@ -371,20 +379,6 @@ private:
         else {
             originText.setString("Click on map to choose origin");
             destinationText.setString("");
-        }
-    }
-
-    // Update the submit result text field depending on the result of the submission
-    void setSubmissionResultText()
-    {
-        if (originFieldFilled && destinationFieldFilled)
-        {
-            // Call the chosen algorithm if both fields are filled.
-            submissionResultText.setString("Calculating shortest path...");
-        }
-        else if (!(originFieldFilled && destinationFieldFilled)) {
-            // TODO Maybe a toast message?
-            submissionResultText.setString("Error: Both fields not filled.");
         }
     }
 
