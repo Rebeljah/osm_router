@@ -168,6 +168,10 @@ def node_generator(map_bbox: Rect, chunk_size: decimal.Decimal, node_num_out_edg
             node.num_out_edges = node_num_out_edges[node.id]
             node.num_in_edges = node_num_in_edges[node.id]
 
+            #Skip nodes that are not connected to at least one car-accessible edge
+            if node.num_out_edges == 0 and node.num_in_edges == 0:
+                continue
+
             chunk_num_nodes[chunk_id(row, col)] += 1
 
             yield node
@@ -185,6 +189,10 @@ def edge_generator(chunk_size: decimal.Decimal, map_bbox: Rect, node_num_out_edg
             cols = line[:wkt_start].split(',')[1:]  # skip id column (1st col)
             path = parse_wkt_linestring(line[wkt_start+1:])
             offset_edge_path(path, map_bbox)
+
+            #Skip edges with car_forward and car_backward set to "Forbidden"
+            if path_descriptor_to_int[cols[5]] == 0 and path_descriptor_to_int[cols[6]] == 0:
+                continue
 
             # edge belongs to chunk where path starts
             chunk_row, chunk_col = chunk_grid_pos(path[0], chunk_size)
@@ -212,7 +220,6 @@ def edge_generator(chunk_size: decimal.Decimal, map_bbox: Rect, node_num_out_edg
             chunk_num_edges[chunk_id(chunk_row, chunk_col)] += 1
 
             yield edge
-
 
 def insert_rows(tbl_name: str, rows: Iterable[Chunk | Node | Edge], con: sqlite3.Connection) -> None:
     cur = con.cursor()
