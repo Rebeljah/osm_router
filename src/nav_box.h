@@ -138,7 +138,7 @@ public:
             {
                 submissionResultText.setString("Calculating shortest path...");
                 ps::Event event(ps::EventType::NavBoxSubmitted);
-                event.data = ps::Event::NavBoxForm(offsetLonLatOrigin, offsetLonLatDestination, (int)selectedAlgorithm);
+                event.data = ps::Data::NavBoxForm(offsetLonLatOrigin, offsetLonLatDestination, (int)selectedAlgorithm);
                 emitEvent(event);
             }
             else

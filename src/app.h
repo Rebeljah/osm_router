@@ -31,8 +31,8 @@ public:
         Degree viewportH = *config["viewport"]["default_h"].value<double>();
         Degree chunkSize = *config["map"]["chunk_size"].value<double>();
 
-        // connect the custom event queue to the navbox
-        navBox.addSubscriber(&eventQueue, ps::EventType::NavBoxSubmitted);
+        // connect the custom event queue to listen to the navbox event(s)
+        eventQueue.subscribe(&navBox, ps::EventType::NavBoxSubmitted);
         
         // load map data in background. Done event will be handled in event loop.
         std::thread([this](){
@@ -138,7 +138,7 @@ private:
                     continue;
                 }
 
-                auto navBoxForm = std::get<ps::Event::NavBoxForm>(event.data);
+                auto navBoxForm = std::get<ps::Data::NavBoxForm>(event.data);
                 sf::Vector2<double> origin = navBoxForm.origin;
                 sf::Vector2<double> destination = navBoxForm.destination;
                 AlgoName algoName = (AlgoName)navBoxForm.algoName;
@@ -151,13 +151,13 @@ private:
                         auto endTime = std::chrono::high_resolution_clock().now();
                         // push an event with the completed route data
                         ps::Event event(ps::EventType::RouteCompleted);
-                        event.data = ps::Event::CompleteRoute(path, std::chrono::duration(endTime - startTime));
+                        event.data = ps::Data::CompleteRoute(path, std::chrono::duration(endTime - startTime));
                         this->eventQueue.onEvent(event);
                     }).detach();
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
-                auto data = std::get<ps::Event::CompleteRoute>(event.data);
+                auto data = std::get<ps::Data::CompleteRoute>(event.data);
 
                 PointPath routePath;
 
