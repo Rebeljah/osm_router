@@ -27,9 +27,9 @@ namespace ps
      */
     enum class EventType : int
     {
-        MapDataLoaded,         // n/a
-        NavBoxSubmitted,       // NavBoxForm
-        RouteCompleted,        // CompleteRoute
+        MapDataLoaded,   // n/a
+        NavBoxSubmitted, // NavBoxForm
+        RouteCompleted,  // CompleteRoute
     };
 
     namespace Data

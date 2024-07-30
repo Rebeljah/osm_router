@@ -16,7 +16,7 @@ public:
     Viewport() {}
 
     Viewport(sf::Vector2<double> displaySize, MapGeometry *mapGeometry)
-    : Rectangle<double>(0, 0, displaySize.x, displaySize.y), mapGeometry(mapGeometry)
+        : Rectangle<double>(0, 0, displaySize.x, displaySize.y), mapGeometry(mapGeometry)
     {
     }
 
@@ -104,7 +104,7 @@ public:
     /*
     Convert a point that is relative to the viewport to one that is
     relative to the viewport's bounding area. For example, if the viewport
-    is at the top-left of the bounding area, then this function has no effect. If 
+    is at the top-left of the bounding area, then this function has no effect. If
     the viewport's top-left is 10 pixels from the left of the bounding area, and 10 pixels
     from the top of the bounding area this function would return { 10, 10 } given
     { 0, 0 }
@@ -113,7 +113,7 @@ public:
     */
     sf::Vector2f windowPositionToMapPosition(sf::Vector2f xy)
     {
-        return { xy.x + left, xy.y + top };
+        return {xy.x + left, xy.y + top};
     }
 
 private:

@@ -15,7 +15,7 @@ struct GraphEdge
 {
     long long int sqlID;
     GraphNodeIndex to;
-    int weight; 
+    int weight;
     bool isPrimary;
 };
 
@@ -46,13 +46,13 @@ public:
 
             if (chunkedGraphNodes.size() <= chunkRow)
                 chunkedGraphNodes.resize(chunkRow + 1);
-            
+
             if (chunkedGraphNodes[chunkRow].size() <= chunkCol)
                 chunkedGraphNodes[chunkRow].resize(chunkCol + 1);
-            
+
             chunkedGraphNodes[chunkRow][chunkCol].push_back(nodes.size() - 1);
         }
-        
+
         // load and insert all edges
         for (sql::Edge edge : storage.iterate<sql::Edge>())
         {
@@ -83,15 +83,15 @@ public:
 
     GraphNodeIndex findNearestNode(int chunkRow, int chunkCol, double offsetLongitude, double offsetLatitude)
     {
-        using std::sqrt;
         using std::pow;
+        using std::sqrt;
 
         if (nodes.empty())
             throw std::domain_error("Vector of nodes is empty");
-        
+
         double x0 = offsetLongitude;
         double y0 = offsetLatitude;
-        double smallestDistance = 100000000;  // no distance will be larger than this;
+        double smallestDistance = 100000000; // no distance will be larger than this;
         GraphEdgeIndex closestNodeIndex = -1;
 
         for (const GraphNodeIndex &idx : chunkedGraphNodes.at(chunkRow).at(chunkCol))
@@ -102,7 +102,7 @@ public:
 
             // euclidean distance with pythagorean theorem
             double distance = sqrt(pow(x1 - x0, 2) + pow(y1 - y0, 2));
-        
+
             if (distance < smallestDistance)
             {
                 smallestDistance = distance;
@@ -118,19 +118,23 @@ public:
         return isLoaded;
     }
 
-    GraphNode& getNode(GraphNodeIndex nodeIndex) {
+    GraphNode &getNode(GraphNodeIndex nodeIndex)
+    {
         return nodes[nodeIndex];
     }
 
-    GraphEdge& getEdge(GraphEdgeIndex edgeIndex) {
+    GraphEdge &getEdge(GraphEdgeIndex edgeIndex)
+    {
         return edges[edgeIndex];
     }
 
-    int getNodeCount() {
+    int getNodeCount()
+    {
         return nodes.size();
     }
 
-    int getEdgeCount() {
+    int getEdgeCount()
+    {
         return edges.size();
     }
 

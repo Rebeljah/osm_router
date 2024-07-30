@@ -127,7 +127,8 @@ void ps::EventQueue::pushEvent(const ps::Event &event)
 ps::Event ps::EventQueue::popNext()
 {
     const std::lock_guard<std::mutex> lock_guard(lock);
-    if (queue.empty()) {
+    if (queue.empty())
+    {
         throw std::runtime_error("Attempt to pop from an empty queue");
     }
     ps::Event res = queue.front();

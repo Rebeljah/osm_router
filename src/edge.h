@@ -110,7 +110,7 @@ struct Edge
             carFwd == PathDescriptor::Primary || carFwd == PathDescriptor::Secondary ||
             carBwd == PathDescriptor::Primary || carBwd == PathDescriptor::Secondary)
         {
-            color = sf::Color(0,0,0, 255);
+            color = sf::Color(0, 0, 0, 255);
         }
         else if (
             carFwd == PathDescriptor::Tertiary || carFwd == PathDescriptor::Residential ||
@@ -137,7 +137,7 @@ struct Route
             // convert the offset lon, lat to a map-relative pixel coordinate
             auto pointDisplayCoordinate = mapGeometry->toPixelVector(path.points[i]);
             // offset the coordinate to the viewport display rectangle
-            pointDisplayCoordinate -= { viewportRect.left, viewportRect.top };
+            pointDisplayCoordinate -= {viewportRect.left, viewportRect.top};
 
             pathVertices[i].color = sf::Color::Blue;
             pathVertices[i].position = sf::Vector2f(pointDisplayCoordinate);

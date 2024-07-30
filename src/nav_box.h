@@ -15,36 +15,44 @@ enum class AlgoName
     Dijkstras
 };
 
-class Pin {
+class Pin
+{
 public:
-    void init(string texturePath) {
+    void init(string texturePath)
+    {
         texture.loadFromFile(texturePath);
         sprite.setTexture(texture);
         sprite.setOrigin(texture.getSize().x / 2, texture.getSize().y); // The point is the bottom tip of the pin image rather than the top-left corner;
         sprite.setScale(0.15, 0.15);
     }
 
-    sf::Sprite& getSprite() {
+    sf::Sprite &getSprite()
+    {
         return sprite;
     }
 
-    sf::Vector2<double> getPixelPosition() {
+    sf::Vector2<double> getPixelPosition()
+    {
         return mapPosition;
     }
 
-    sf::Vector2<double> getGeoPosition() {
+    sf::Vector2<double> getGeoPosition()
+    {
         return offsetGeoPosition;
     }
 
-    void setPixelPosition(sf::Vector2<double> position) {
+    void setPixelPosition(sf::Vector2<double> position)
+    {
         mapPosition = position;
     }
 
-    void setGeoPosition(sf::Vector2<double> position) {
+    void setGeoPosition(sf::Vector2<double> position)
+    {
         offsetGeoPosition = position;
     }
 
-    void setSpritePosition(sf::Vector2<double> position) {
+    void setSpritePosition(sf::Vector2<double> position)
+    {
         sprite.setPosition(position.x, position.y);
     }
 
@@ -62,7 +70,7 @@ public:
     Should be called at the start of the app because it requires values that
     are not available until the App class is being constructed
     */
-    void init(sf::RenderWindow* window, Viewport* viewport, MapGeometry* mapGeometry, int width, int height)
+    void init(sf::RenderWindow *window, Viewport *viewport, MapGeometry *mapGeometry, int width, int height)
     {
         // Window needs to be set before anything else, otherwise segfaults occur.
         this->window = window;
@@ -95,31 +103,37 @@ public:
     /**
      * Activates clicked elements of the navbox including input fields and checkboxes.
      * Shouldn't do anything unless the click was a left-click.
-     * 
+     *
      * @param clickEvent: Clicks on the navbox elements.
-    */
+     */
     void handleClick(sf::Event clickEvent)
     {
-        if (clickEvent.mouseButton.button != sf::Mouse::Left) return;
+        if (clickEvent.mouseButton.button != sf::Mouse::Left)
+            return;
 
         int x = clickEvent.mouseButton.x;
         int y = clickEvent.mouseButton.y;
 
-        if (!backgroundBox.getGlobalBounds().contains(x,y)) return;
+        if (!backgroundBox.getGlobalBounds().contains(x, y))
+            return;
 
-        if (dijkstraCheckBox.getGlobalBounds().contains(x, y)) {
+        if (dijkstraCheckBox.getGlobalBounds().contains(x, y))
+        {
             selectDijkstra();
         }
-        else if (aStarCheckBox.getGlobalBounds().contains(x, y)) {
+        else if (aStarCheckBox.getGlobalBounds().contains(x, y))
+        {
             selectAStar();
         }
         // Only one field can be active at a time.
-        else if (originInputBox.getGlobalBounds().contains(x,y)) {
+        else if (originInputBox.getGlobalBounds().contains(x, y))
+        {
             activateOriginField();
             deactivateDestinationField();
         }
         // An origin should be required (filled) before altering the destination
-        else if (destinationInputBox.getGlobalBounds().contains(x,y)) {
+        else if (destinationInputBox.getGlobalBounds().contains(x, y))
+        {
             if (destinationFieldFilled || originFieldFilled)
             {
                 activateDestinationField();
@@ -134,7 +148,7 @@ public:
         {
             deactivateOriginField();
             deactivateDestinationField();
-                        if (isValidSubmission())
+            if (isValidSubmission())
             {
                 submissionResultText.setString("");
                 ps::Event event(ps::EventType::NavBoxSubmitted);
@@ -147,30 +161,35 @@ public:
             }
         }
     }
-    
+
     /**
      * Updates the navbox elements based on key presses.
-     * 
+     *
      * @param keyEvent: Key presses on the navbox elements.
-    */
+     */
     void handleKeyPress(sf::Event keyEvent)
     {
         bool isPressed = keyEvent.type == sf::Event::KeyPressed;
 
         // The active field should get a placeholder if it has been backspaced,
         // except in the case that both are empty, where only origin has a placeholder.
-        if (isPressed && keyEvent.key.code == sf::Keyboard::BackSpace) {
-            if (originFieldSelected && originFieldFilled) {
+        if (isPressed && keyEvent.key.code == sf::Keyboard::BackSpace)
+        {
+            if (originFieldSelected && originFieldFilled)
+            {
                 originFieldFilled = false;
             }
-            else if (destinationFieldSelected && originFieldFilled) {
+            else if (destinationFieldSelected && originFieldFilled)
+            {
                 destinationFieldFilled = false;
-                if (!originFieldFilled) {
+                if (!originFieldFilled)
+                {
                     originFieldSelected = true;
                     destinationFieldSelected = false;
                 }
             }
-            else if (destinationFieldSelected && destinationFieldFilled && !originFieldFilled) {
+            else if (destinationFieldSelected && destinationFieldFilled && !originFieldFilled)
+            {
                 destinationFieldFilled = false;
                 originFieldSelected = true;
                 destinationFieldSelected = false;
@@ -182,39 +201,43 @@ public:
 
     /**
      * Updates the navbox elements based on mouse clicks.
-     * 
+     *
      * Takes the coordinates of a click and converts them to global coordinates, then updates the input fields.
-     * 
+     *
      * @param mouseEvent: Mouse clicks on the navbox elements.
-    */
-    void updateCoordinates(sf::Event mouseEvent) {
+     */
+    void updateCoordinates(sf::Event mouseEvent)
+    {
         // Used to update pins if the fields are filled.
         sf::Vector2<double> clickOffsetLonLat = mapGeometry->toGeoVector(
             sf::Vector2<double>(viewport->windowPositionToMapPosition(
-                {mouseEvent.mouseButton.x, mouseEvent.mouseButton.y})
-            )
-        );
+                {mouseEvent.mouseButton.x, mouseEvent.mouseButton.y})));
 
         // Used for a global coordinate system appearance within input fields.
         sf::Vector2<double> clickGlobalLonLat = mapGeometry->unoffsetGeoVector(clickOffsetLonLat);
-        
-        if (originFieldSelected) {
+
+        if (originFieldSelected)
+        {
             setOriginText(clickGlobalLonLat.y, clickGlobalLonLat.x);
             updateOriginPin(clickOffsetLonLat.x, clickOffsetLonLat.y);
             deactivateOriginField();
 
-            if (!destinationFieldFilled) {
+            if (!destinationFieldFilled)
+            {
                 activateDestinationField();
-            }                     
+            }
         }
-        else if (destinationFieldSelected) {
-            
-            if (originFieldFilled) {
+        else if (destinationFieldSelected)
+        {
+
+            if (originFieldFilled)
+            {
                 setDestinationText(clickGlobalLonLat.y, clickGlobalLonLat.x);
                 updateDestinationPin(clickOffsetLonLat.x, clickOffsetLonLat.y);
                 deactivateDestinationField();
             }
-            else {
+            else
+            {
                 setOriginText(clickGlobalLonLat.y, clickGlobalLonLat.x);
                 updateOriginPin(clickOffsetLonLat.x, clickOffsetLonLat.y);
                 deactivateOriginField();
@@ -244,10 +267,12 @@ public:
 
         updatePinSprites();
 
-        if (originFieldFilled) {
+        if (originFieldFilled)
+        {
             window.draw(originPin.getSprite());
         }
-        if (destinationFieldFilled) {
+        if (destinationFieldFilled)
+        {
             window.draw(destinationPin.getSprite());
         }
     }
@@ -257,7 +282,8 @@ public:
         return selectedAlgorithm;
     }
 
-    bool isValidSubmission() {
+    bool isValidSubmission()
+    {
         return (originFieldFilled && destinationFieldFilled);
     }
 
@@ -279,7 +305,7 @@ private:
     float width;
 
     ///////////////
-    //UI ELEMENTS//
+    // UI ELEMENTS//
     ///////////////
     sf::RectangleShape backgroundBox;
     sf::Font font;
@@ -310,14 +336,16 @@ private:
     // UI Functions ///
     ///////////////////
 
-    void updatePinSprites() {
+    void updatePinSprites()
+    {
         auto originPosition = originPin.getPixelPosition();
         auto destinationPosition = destinationPin.getPixelPosition();
         originPin.setSpritePosition({originPosition.x - viewport->left, originPosition.y - viewport->top});
         destinationPin.setSpritePosition({destinationPosition.x - viewport->left, destinationPosition.y - viewport->top});
     }
 
-    void updateOriginPin(double offsetLongitude, double offsetLatitude) {
+    void updateOriginPin(double offsetLongitude, double offsetLatitude)
+    {
         auto pixelPosition = mapGeometry->toPixelVector({offsetLongitude, offsetLatitude});
         originPin.setGeoPosition({offsetLongitude, offsetLatitude});
         originPin.setPixelPosition(pixelPosition);
@@ -325,7 +353,8 @@ private:
         this->offsetLonLatOrigin = {offsetLongitude, offsetLatitude};
     }
 
-    void updateDestinationPin(double offsetLongitude, double offsetLatitude) {
+    void updateDestinationPin(double offsetLongitude, double offsetLatitude)
+    {
         auto position = mapGeometry->toPixelVector({offsetLongitude, offsetLatitude});
         destinationPin.setGeoPosition({offsetLongitude, offsetLatitude});
         destinationPin.setPixelPosition(position);
@@ -333,47 +362,58 @@ private:
         this->offsetLonLatDestination = {offsetLongitude, offsetLatitude};
     }
 
-    void setOriginText(const double& globalLatitude, const double& globalLongitude) {
+    void setOriginText(const double &globalLatitude, const double &globalLongitude)
+    {
         originText.setString(std::to_string(globalLatitude) + ", " + std::to_string(globalLongitude));
         originFieldFilled = true;
     }
 
-    void setDestinationText(const double& globalLatitude, const double& globalLongitude) {
+    void setDestinationText(const double &globalLatitude, const double &globalLongitude)
+    {
         destinationText.setString(std::to_string(globalLatitude) + ", " + std::to_string(globalLongitude));
         destinationFieldFilled = true;
     }
 
-    void activateOriginField() {
+    void activateOriginField()
+    {
         originInputBox.setOutlineThickness(2);
         originFieldSelected = true;
     }
 
-    void activateDestinationField() {
+    void activateDestinationField()
+    {
         destinationInputBox.setOutlineThickness(2);
         destinationFieldSelected = true;
     }
 
-    void deactivateDestinationField() {
+    void deactivateDestinationField()
+    {
         destinationInputBox.setOutlineThickness(1);
         destinationFieldSelected = false;
     }
 
-    void deactivateOriginField() {
+    void deactivateOriginField()
+    {
         originInputBox.setOutlineThickness(1);
         originFieldSelected = false;
     }
 
-    void setPlaceHolders() {
-        if (originFieldFilled && destinationFieldFilled) {
+    void setPlaceHolders()
+    {
+        if (originFieldFilled && destinationFieldFilled)
+        {
             return;
         }
-        else if (originFieldFilled && !destinationFieldFilled) {
+        else if (originFieldFilled && !destinationFieldFilled)
+        {
             destinationText.setString("Click on map to choose destination");
         }
-        else if (!originFieldFilled && destinationFieldFilled) {
+        else if (!originFieldFilled && destinationFieldFilled)
+        {
             originText.setString("Click on map to choose origin");
         }
-        else {
+        else
+        {
             originText.setString("Click on map to choose origin");
             destinationText.setString("");
         }
@@ -404,12 +444,14 @@ private:
     //////////////////////////
     // Initial Construction //
     //////////////////////////
-    void initPins() {
+    void initPins()
+    {
         originPin.init("assets/images/pin_green.png");
         destinationPin.init("assets/images/pin_red.png");
     }
 
-    void initBackgroundBox(const float& width, const float& height) {
+    void initBackgroundBox(const float &width, const float &height)
+    {
         backgroundBox.setSize(sf::Vector2f(width, height));
         backgroundBox.setFillColor(sf::Color(255, 255, 255, 220));
         backgroundBox.setOutlineColor(sf::Color(255, 165, 0, 200));
@@ -417,7 +459,8 @@ private:
         backgroundBox.setPosition(0, window->getSize().x - height);
     }
 
-    void initInputBoxes(float height) {
+    void initInputBoxes(float height)
+    {
         originLabel.setFont(font);
         originLabel.setCharacterSize(15);
         originLabel.setFillColor(sf::Color::Black);
@@ -441,7 +484,8 @@ private:
         destinationInputBox.setOutlineThickness(1);
     }
 
-    void initCheckBoxes(float height) {
+    void initCheckBoxes(float height)
+    {
         dijkstraCheckBoxLabel.setFont(font);
         dijkstraCheckBoxLabel.setCharacterSize(15);
         dijkstraCheckBoxLabel.setFillColor(sf::Color::Black);
@@ -465,7 +509,8 @@ private:
         aStarCheckBox.setPosition(aStarCheckBoxLabel.getPosition().x + aStarCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 75);
     }
 
-    void initTextElements(float height) {
+    void initTextElements(float height)
+    {
         originText.setFont(font);
         originText.setCharacterSize(13);
         originText.setFillColor(sf::Color::Black);
@@ -476,7 +521,8 @@ private:
         destinationText.setPosition(destinationInputBox.getPosition().x + 5, window->getSize().x - height + 47);
     }
 
-    void initSubmitButton(float height, float width) {
+    void initSubmitButton(float height, float width)
+    {
         submitButton.setSize(sf::Vector2f(45, 20));
         submitButton.setFillColor(sf::Color::Magenta);
         submitButton.setOutlineColor(sf::Color::Black);
@@ -490,7 +536,8 @@ private:
         submitButtonLabel.setPosition(width - 52, window->getSize().x - height + 70);
     }
 
-    void initSubmitResultText() {
+    void initSubmitResultText()
+    {
         submissionResultText.setFont(font);
         submissionResultText.setCharacterSize(13);
         submissionResultText.setFillColor(sf::Color::Black);

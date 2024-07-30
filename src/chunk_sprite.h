@@ -119,8 +119,8 @@ public:
         }
         if (m_cache[row].size() <= col)
         {
-            m_cache[row].resize(col + 1, nullptr);  // cache slots are init'd as nullptr
-            m_isLoading[row].resize(col + 1, false);  // flag grid slots are init'd false
+            m_cache[row].resize(col + 1, nullptr);   // cache slots are init'd as nullptr
+            m_isLoading[row].resize(col + 1, false); // flag grid slots are init'd false
         }
 
         // check if chunk is cached first
@@ -153,7 +153,7 @@ private:
         {
             if (!m_isLoading[row][col])
             {
-                m_loadQueue.push({ row, col });
+                m_loadQueue.push({row, col});
                 m_isLoading[row][col] = true;
             }
         }
@@ -214,10 +214,10 @@ private:
 struct ChunkSprite : sf::Sprite
 {
     ChunkSprite(Rectangle<double> rect) : rect(rect)
-    {  
+    {
         // Drawing will be done on a RenderTexture so that it can be cached
         // this avoid redrawing all of the roads on each frame
-        renderTexture.create(rect.width+1, rect.height+1);
+        renderTexture.create(rect.width + 1, rect.height + 1);
         this->setTexture(renderTexture.getTexture());
     }
 
@@ -233,7 +233,7 @@ struct ChunkSprite : sf::Sprite
             // convert the offset lon, lat to a map-relative pixel coordinate
             auto pointDisplayCoordinate = mapGeometry->toPixelVector(edge.path.points[i]);
             // offset the coordinate to the RenderTexture display rectangle
-            pointDisplayCoordinate -= { rect.left, rect.top };
+            pointDisplayCoordinate -= {rect.left, rect.top};
 
             path[i].color = edge.color;
             path[i].position = sf::Vector2f(pointDisplayCoordinate);
@@ -262,7 +262,7 @@ public:
             m_grid.resize(row + 1);
         if (m_grid[row].size() <= col)
             m_grid[row].resize(col + 1);
-        
+
         // return the sprite if already loaded and in the cache
         if (m_grid[row][col] != nullptr)
         {
@@ -280,7 +280,7 @@ public:
         renderChunkSprite(**chunkOpt, row, col);
         renderInterchunkEdges();
         chunkLoader.unCache(row, col);
-        
+
         m_grid[row][col]->renderTexture.display();
         return m_grid[row][col];
     }
@@ -289,16 +289,13 @@ private:
     void renderChunkSprite(Chunk &chunk, int row, int col)
     {
         auto rect = m_pMapGeometry->toPixelRectangle(
-            {
-                chunk.data.offsetLatTop,
-                chunk.data.offsetLonLeft,
-                m_pMapGeometry->getChunkGeoSize(),
-                m_pMapGeometry->getChunkGeoSize()
-            }
-        );
+            {chunk.data.offsetLatTop,
+             chunk.data.offsetLonLeft,
+             m_pMapGeometry->getChunkGeoSize(),
+             m_pMapGeometry->getChunkGeoSize()});
 
         auto chunkSprite = new ChunkSprite(rect);
-        
+
         // render all edges in the chunk onto the chunkSprite texture
         for (auto &[_, node] : chunk.nodes)
         {
@@ -320,8 +317,8 @@ private:
                     for (int c = overlap.left; c <= overlap.right(); ++c)
                     {
                         if (r == chunk.data.row && c == chunk.data.col)
-                            continue;  // don't render edge again on current chunk
-                        
+                            continue; // don't render edge again on current chunk
+
                         interChunkEdges.push(std::make_pair(std::make_pair(r, c), edge));
                     }
                 }

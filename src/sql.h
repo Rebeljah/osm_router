@@ -46,10 +46,10 @@ namespace sql
     inline auto loadStorage(std::string dbPath)
     {
         using namespace sqlite_orm;
-        #define mt make_table
-        #define mc make_column
-        #define fk foreign_key
-        #define mi make_index
+#define mt make_table
+#define mc make_column
+#define fk foreign_key
+#define mi make_index
 
         return make_storage(
             dbPath,
@@ -73,7 +73,7 @@ namespace sql
                mc("offset_lat_top", &Chunk::offsetLatTop),
                mc("offset_lon_left", &Chunk::offsetLonLeft),
                mc("num_nodes", &Chunk::numNodes),
-               mc("num_edges", &Chunk::numEdges)),               
+               mc("num_edges", &Chunk::numEdges)),
 
             mt("edge",
                mc("id", &Edge::id, primary_key().autoincrement()),

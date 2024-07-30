@@ -3,8 +3,8 @@
 #include <vector>
 #include <string>
 
-using std::vector;
 using std::string;
+using std::vector;
 
 // code adapted from: https://www.geeksforgeeks.org/unordered-set-of-pairs-in-c-with-examples/#
 /*

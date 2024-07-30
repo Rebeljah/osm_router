@@ -11,7 +11,7 @@
  */
 double degreesToMeters(double x)
 {
-    return x * 110773;  // value based on average conversion for latitude of map area 
+    return x * 110773; // value based on average conversion for latitude of map area
 }
 
 /**
@@ -22,7 +22,7 @@ double degreesToMeters(double x)
  */
 double metersToDegrees(double x)
 {
-    return x / 110773;  // value based on average conversion for latitude of map area
+    return x / 110773; // value based on average conversion for latitude of map area
 }
 
 /**
@@ -51,10 +51,11 @@ double pixelsToDegrees(double x, double degreesPerPixel)
 
 /**
  * Calculate the euclidean distance between two points.
- * 
+ *
  * @returns distance between the two points
-*/
-double distanceBetweenPoints(double x0, double y0, double x1, double y1) {
+ */
+double distanceBetweenPoints(double x0, double y0, double x1, double y1)
+{
     return sqrt(pow(x1 - x0, 2) + pow(y1 - y0, 2));
 }
 
@@ -126,8 +127,8 @@ public:
      * @param chunkGeoSize: size of map chunks in decimal degrees
      */
     MapGeometry(double pixelsPerDegree, Rectangle<double> mapGeoBounds, double chunkGeoSize)
-    : pixelsPerDegree(pixelsPerDegree), mapGeoBounds(mapGeoBounds), mapDisplayBounds(0,0,0,0),
-    chunkGeoSize(chunkGeoSize)
+        : pixelsPerDegree(pixelsPerDegree), mapGeoBounds(mapGeoBounds), mapDisplayBounds(0, 0, 0, 0),
+          chunkGeoSize(chunkGeoSize)
     {
         mapDisplayBounds.width = degreesToPixels(mapGeoBounds.width, pixelsPerDegree);
         mapDisplayBounds.height = degreesToPixels(mapGeoBounds.height, pixelsPerDegree);
@@ -149,8 +150,9 @@ public:
      * @param offsetLatitude: offset latitude in degrees
      * @param offsetLongitude: offset longitude in degrees
      * @returns A std pair containing row = first and column = second
-    */
-    std::pair<int, int> getChunkRowCol(double offsetLatitude, double offsetLongitude) const {
+     */
+    std::pair<int, int> getChunkRowCol(double offsetLatitude, double offsetLongitude) const
+    {
         std::pair<int, int> chunkCoordinate;
         chunkCoordinate.first = int(offsetLatitude / getChunkGeoSize());
         chunkCoordinate.second = int(offsetLongitude / getChunkGeoSize());

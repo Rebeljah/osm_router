@@ -33,33 +33,32 @@ public:
 
         // connect the custom event queue to listen to the navbox event(s)
         eventQueue.subscribe(&navBox, ps::EventType::NavBoxSubmitted);
-        
+
         // load map data in background. Done event will be handled in event loop.
-        std::thread([this](){
+        std::thread([this]()
+                    {
             this->mapGraph.load("./db/map.db");
-            this->eventQueue.pushEvent(ps::Event(ps::EventType::MapDataLoaded));
-        }).detach();
+            this->eventQueue.pushEvent(ps::Event(ps::EventType::MapDataLoaded)); })
+            .detach();
 
         mapGeometry = MapGeometry(
-            800 / viewportW,  // pixels per degree
-            { mapTop, mapLeft, mapRight - mapLeft, mapTop - mapBottom },  // map geo area
-            chunkSize // chunk geo size
+            800 / viewportW,                                           // pixels per degree
+            {mapTop, mapLeft, mapRight - mapLeft, mapTop - mapBottom}, // map geo area
+            chunkSize                                                  // chunk geo size
         );
 
         route.mapGeometry = &mapGeometry;
 
         sf::Vector2<double> viewportGeoSize = {
-             *config["viewport"]["default_w"].value<double>(),
-             *config["viewport"]["default_h"].value<double>()
-        };
+            *config["viewport"]["default_w"].value<double>(),
+            *config["viewport"]["default_h"].value<double>()};
 
         viewport = Viewport(mapGeometry.toPixelVector(viewportGeoSize), &mapGeometry);
-        
+
         viewport.centerOnPoint(
             mapGeometry.toPixelVector(
-                mapGeometry.offsetGeoVector({ -82.325005, 29.651982 })  // Gville, FL
-            )
-        ); 
+                mapGeometry.offsetGeoVector({-82.325005, 29.651982}) // Gville, FL
+                ));
 
         chunkSpriteLoader.init(&mapGeometry, "./db/map.db");
 
@@ -109,7 +108,8 @@ private:
 
                 if (navBox.getBox().getGlobalBounds().contains(x, y))
                     navBox.handleClick(event);
-                else {
+                else
+                {
                     navBox.updateCoordinates(event);
                 }
             }
@@ -143,17 +143,17 @@ private:
                 sf::Vector2<double> destination = navBoxForm.destination;
                 AlgoName algoName = (AlgoName)navBoxForm.algoName;
 
-                toaster.spawnToast(window.getSize().x/2, "Finding a route...", "finding_route");
+                toaster.spawnToast(window.getSize().x / 2, "Finding a route...", "finding_route");
                 std::thread([this, origin, destination, algoName]()
-                    {
+                            {
                         auto startTime = std::chrono::high_resolution_clock().now();
                         vector<GraphNodeIndex> path = findShortestPath(origin, destination, algoName, mapGraph, mapGeometry);
                         auto endTime = std::chrono::high_resolution_clock().now();
                         // push an event with the completed route data
                         ps::Event event(ps::EventType::RouteCompleted);
                         event.data = ps::Data::CompleteRoute(path, std::chrono::duration(endTime - startTime));
-                        this->eventQueue.onEvent(event);
-                    }).detach();
+                        this->eventQueue.onEvent(event); })
+                    .detach();
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
