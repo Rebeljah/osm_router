@@ -228,9 +228,9 @@ private:
         }
 
         // Draws a navigation box at the bottom-left of the screen
+        route.render(window, (Rectangle<double>)viewport);
         navBox.draw(window);
         toaster.render(window);
-        route.render(window, (Rectangle<double>)viewport);
         window.display();
     }
 
