@@ -136,7 +136,7 @@ public:
             deactivateDestinationField();
                         if (isValidSubmission())
             {
-                submissionResultText.setString("Calculating shortest path...");
+                submissionResultText.setString("");
                 ps::Event event(ps::EventType::NavBoxSubmitted);
                 event.data = ps::Data::NavBoxForm(offsetLonLatOrigin, offsetLonLatDestination, (int)selectedAlgorithm);
                 emitEvent(event);
