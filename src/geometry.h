@@ -50,6 +50,15 @@ double pixelsToDegrees(double x, double degreesPerPixel)
 }
 
 /**
+ * Calculate the euclidean distance between two points.
+ * 
+ * @returns distance between the two points
+*/
+double distanceBetweenPoints(double x0, double y0, double x1, double y1) {
+    return sqrt(pow(x1 - x0, 2) + pow(y1 - y0, 2));
+}
+
+/**
  * extension of sf::Rect with additional functionality.
  */
 template <typename T>
