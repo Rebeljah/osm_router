@@ -126,7 +126,6 @@ private:
         while (!eventQueue.empty())
         {
             ps::Event event = eventQueue.popNext();
-            PointPath routePath;
 
             if (event.type == ps::EventType::MapDataLoaded)
             {
@@ -159,12 +158,13 @@ private:
             }
             else if (event.type == ps::EventType::NavBoxFormChanged)
             {
-                routePath.clear();
+                route.path.clear();
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
                 auto data = std::get<ps::Data::CompleteRoute>(event.data);
 
+                PointPath routePath;
                 auto storage = sql::loadStorage("./db/map.db");
                 for (GraphEdgeIndex idx : data.edgeIndices)
                 {
