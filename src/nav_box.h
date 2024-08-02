@@ -211,7 +211,7 @@ public:
         // Used to update pins if the fields are filled.
         sf::Vector2<double> clickOffsetLonLat = mapGeometry->toGeoVector(
             sf::Vector2<double>(viewport->windowPositionToMapPosition(
-                {mouseEvent.mouseButton.x, mouseEvent.mouseButton.y})));
+                {static_cast<float>(mouseEvent.mouseButton.x), static_cast<float>(mouseEvent.mouseButton.y)})));
 
         // Used for a global coordinate system appearance within input fields.
         sf::Vector2<double> clickGlobalLonLat = mapGeometry->unoffsetGeoVector(clickOffsetLonLat);

@@ -113,7 +113,7 @@ public:
     */
     sf::Vector2f windowPositionToMapPosition(sf::Vector2f xy)
     {
-        return {xy.x + left, xy.y + top};
+        return {static_cast<float>(xy.x + left), static_cast<float>(xy.y + top)};
     }
 
 private:
