@@ -29,6 +29,7 @@ namespace ps
     {
         MapDataLoaded,   // n/a
         NavBoxSubmitted, // NavBoxForm
+        NavBoxFormChanged, // NavBoxForm
         RouteCompleted,  // CompleteRoute
     };
 

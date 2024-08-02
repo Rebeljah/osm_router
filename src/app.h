@@ -33,6 +33,7 @@ public:
 
         // connect the custom event queue to listen to the navbox event(s)
         eventQueue.subscribe(&navBox, ps::EventType::NavBoxSubmitted);
+        eventQueue.subscribe(&navBox, ps::EventType::NavBoxFormChanged);
 
         // load map data in background. Done event will be handled in event loop.
         std::thread([this]()
@@ -154,6 +155,10 @@ private:
                         event.data = ps::Data::CompleteRoute(path, std::chrono::duration(endTime - startTime));
                         this->eventQueue.onEvent(event); })
                     .detach();
+            }
+            else if (event.type == ps::EventType::NavBoxFormChanged)
+            {
+                toaster.spawnToast(window.getSize().x / 2, "test", "test");
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
