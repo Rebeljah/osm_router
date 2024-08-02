@@ -158,7 +158,7 @@ private:
             }
             else if (event.type == ps::EventType::NavBoxFormChanged)
             {
-                toaster.spawnToast(window.getSize().x / 2, "test", "test");
+                toaster.spawnToast(window.getSize().x / 2, "Loading data, please wait...", "loading_data", sf::seconds(2.25));
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {

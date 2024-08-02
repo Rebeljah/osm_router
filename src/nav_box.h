@@ -113,6 +113,7 @@ public:
 
         int x = clickEvent.mouseButton.x;
         int y = clickEvent.mouseButton.y;
+        bool formChanged = false;
 
         if (!backgroundBox.getGlobalBounds().contains(x, y))
             return;
@@ -130,6 +131,7 @@ public:
         {
             activateOriginField();
             deactivateDestinationField();
+            formChanged = true;
         }
         // An origin should be required (filled) before altering the destination
         else if (destinationInputBox.getGlobalBounds().contains(x, y))
@@ -138,6 +140,7 @@ public:
             {
                 activateDestinationField();
                 deactivateOriginField();
+                formChanged = true;
             }
         }
 
@@ -159,6 +162,12 @@ public:
             {
                 submissionResultText.setString("Error: Both fields not filled.");
             }
+        }
+
+        if (formChanged)
+        {
+            ps::Event event(ps::EventType::NavBoxFormChanged);
+            emitEvent(event);
         }
     }
 
