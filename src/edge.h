@@ -54,6 +54,10 @@ struct PointPath
         std::reverse(points.begin(), points.end());
     }
 
+    void clear()
+    {
+        points.clear();
+    }
     /*
     Get a lat / lon rectangle that bounds the path. The left and right will be the min and max
     longitude respectively, and the top and bottom will be, respectively, the min and max

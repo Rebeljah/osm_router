@@ -126,6 +126,7 @@ private:
         while (!eventQueue.empty())
         {
             ps::Event event = eventQueue.popNext();
+            PointPath routePath;
 
             if (event.type == ps::EventType::MapDataLoaded)
             {
@@ -158,13 +159,11 @@ private:
             }
             else if (event.type == ps::EventType::NavBoxFormChanged)
             {
-                toaster.spawnToast(window.getSize().x / 2, "Loading data, please wait...", "loading_data", sf::seconds(2.25));
+                routePath.clear();
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
                 auto data = std::get<ps::Data::CompleteRoute>(event.data);
-
-                PointPath routePath;
 
                 auto storage = sql::loadStorage("./db/map.db");
                 for (GraphEdgeIndex idx : data.edgeIndices)
