@@ -148,7 +148,7 @@ private:
                 std::thread([this, origin, destination, algoName]()
                             {
                         auto startTime = std::chrono::high_resolution_clock().now();
-                        vector<GraphNodeIndex> path = findShortestPath(origin, destination, algoName, mapGraph, mapGeometry);
+                        vector<GraphNodeIndex> path = findShortestPath(origin, destination, algoName, mapGraph, mapGeometry);   // FIXME: Returns a different thing?
                         auto endTime = std::chrono::high_resolution_clock().now();
                         // push an event with the completed route data
                         ps::Event event(ps::EventType::RouteCompleted);
@@ -166,9 +166,16 @@ private:
 
                 PointPath routePath;
                 auto storage = sql::loadStorage("./db/map.db");
+
+                // Total distance of the route in meters
+                int totalDistance = 0;
+
                 for (GraphEdgeIndex idx : data.edgeIndices)
                 {
                     GraphEdge graphEdge = mapGraph.getEdge(idx);
+                    
+                    totalDistance += graphEdge.weight;
+
                     sql::Edge edge = storage.get<sql::Edge>(graphEdge.sqlID);
                     PointPath edgePath(edge.pathOffsetPoints);
                     if (!graphEdge.isPrimary)
@@ -182,7 +189,7 @@ private:
 
                 toaster.removeToast("finding_route");
                 std::cout << data.edgeIndices.size() << "edges " << std::endl;
-                toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds", "route_found", sf::seconds(7));
+                toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + to_string(totalDistance) + " meters.", "route_found", sf::seconds(7));
             }
         }
     }
