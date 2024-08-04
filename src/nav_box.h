@@ -164,11 +164,11 @@ public:
             }
         }
 
-        if (formChanged)
-        {
-            ps::Event event(ps::EventType::NavBoxFormChanged);
-            emitEvent(event);
-        }
+        // if (formChanged)
+        // {
+        //     ps::Event event(ps::EventType::NavBoxFormChanged);
+        //     emitEvent(event);
+        // }
     }
 
     /**
@@ -179,6 +179,7 @@ public:
     void handleKeyPress(sf::Event keyEvent)
     {
         bool isPressed = keyEvent.type == sf::Event::KeyPressed;
+        bool formChanged = false;
 
         // The active field should get a placeholder if it has been backspaced,
         // except in the case that both are empty, where only origin has a placeholder.
@@ -187,6 +188,7 @@ public:
             if (originFieldSelected && originFieldFilled)
             {
                 originFieldFilled = false;
+                formChanged = true;
             }
             else if (destinationFieldSelected && originFieldFilled)
             {
@@ -196,14 +198,19 @@ public:
                     originFieldSelected = true;
                     destinationFieldSelected = false;
                 }
+                formChanged = true;
             }
             else if (destinationFieldSelected && destinationFieldFilled && !originFieldFilled)
             {
                 destinationFieldFilled = false;
                 originFieldSelected = true;
                 destinationFieldSelected = false;
+                formChanged = true;
             }
         }
+
+        if (formChanged)
+            emitEvent(ps::Event(ps::EventType::NavBoxFormChanged));
 
         setPlaceHolders();
     }
@@ -224,6 +231,11 @@ public:
 
         // Used for a global coordinate system appearance within input fields.
         sf::Vector2<double> clickGlobalLonLat = mapGeometry->unoffsetGeoVector(clickOffsetLonLat);
+
+        if (!originFieldSelected && !destinationFieldSelected)
+            return;
+        
+        emitEvent(ps::Event(ps::EventType::NavBoxFormChanged));
 
         if (originFieldSelected)
         {
