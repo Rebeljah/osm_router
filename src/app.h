@@ -34,6 +34,7 @@ public:
         // connect the custom event queue to listen to the navbox event(s)
         eventQueue.subscribe(&navBox, ps::EventType::NavBoxSubmitted);
         eventQueue.subscribe(&navBox, ps::EventType::NavBoxFormChanged);
+        eventQueue.subscribe(&algorithms, ps::EventType::EdgeAnimated);
 
         // load map data in background. Done event will be handled in event loop.
         std::thread([this]()
@@ -148,13 +149,38 @@ private:
                 std::thread([this, origin, destination, algoName]()
                             {
                         auto startTime = std::chrono::high_resolution_clock().now();
-                        vector<GraphNodeIndex> path = findShortestPath(origin, destination, algoName, mapGraph, mapGeometry);   // FIXME: Returns a different thing?
+                        vector<GraphNodeIndex> path = algorithms.findShortestPath(origin, destination, algoName, mapGraph, mapGeometry, route, window, viewport, navBox);
                         auto endTime = std::chrono::high_resolution_clock().now();
                         // push an event with the completed route data
                         ps::Event event(ps::EventType::RouteCompleted);
                         event.data = ps::Data::CompleteRoute(path, std::chrono::duration(endTime - startTime));
                         this->eventQueue.onEvent(event); })
                     .detach();
+            }
+            // Attemps to animate the edges being traversed in the route if animate is selected
+            else if (event.type == ps::EventType::EdgeAnimated) 
+            {
+                auto data = std::get<ps::Data::AnimatedEdge>(event.data);
+                PointPath routePath;
+                auto storage = sql::loadStorage("./db/map.db");
+
+                for (GraphEdgeIndex idx : data.edgeIndices)
+                {
+                    GraphEdge graphEdge = mapGraph.getEdge(idx);
+
+                    sql::Edge edge = storage.get<sql::Edge>(graphEdge.sqlID);
+                    PointPath edgePath(edge.pathOffsetPoints);
+                    if (!graphEdge.isPrimary)
+                    {
+                        edgePath.reverse();
+                    }
+                    routePath.extend(edgePath);
+                }
+                route.path = routePath;
+
+                // FIXME: Currently aborts early with 'double free or corruption (!prev)' error
+                route.render(window, (Rectangle<double>)viewport);
+                window.display();
             }
             else if (event.type == ps::EventType::NavBoxFormChanged)
             {
@@ -254,6 +280,7 @@ private:
     NavBox navBox;
     Toaster toaster;
     Route route;
+    Algorithms algorithms;
 
     ChunkLoader chunkLoader;
     ChunkSpriteLoader chunkSpriteLoader;
