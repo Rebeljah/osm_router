@@ -82,6 +82,7 @@ public:
         destinationFieldSelected = false;
         originFieldFilled = false;
         destinationFieldFilled = false;
+        animate = false;
         font.loadFromFile("assets/fonts/Roboto-Light.ttf");
         initBackgroundBox(width, height);
         initInputBoxes(height);
@@ -125,6 +126,10 @@ public:
         else if (aStarCheckBox.getGlobalBounds().contains(x, y))
         {
             selectAStar();
+        }
+        else if (animationCheckBox.getGlobalBounds().contains(x, y))
+        {
+            selectAnimate();
         }
         // Only one field can be active at a time.
         else if (originInputBox.getGlobalBounds().contains(x, y))
@@ -282,6 +287,8 @@ public:
         window.draw(dijkstraCheckBox);
         window.draw(aStarCheckBoxLabel);
         window.draw(aStarCheckBox);
+        window.draw(animationCheckBoxLabel);
+        window.draw(animationCheckBox);
         window.draw(submitButton);
         window.draw(submitButtonLabel);
         window.draw(submissionResultText);
@@ -308,6 +315,11 @@ public:
         return (originFieldFilled && destinationFieldFilled);
     }
 
+    bool getAnimate()
+    {
+        return animate;
+    }
+
 private:
     Viewport *viewport;
     sf::RenderWindow *window;
@@ -318,6 +330,7 @@ private:
     bool destinationFieldSelected;
     bool originFieldFilled;
     bool destinationFieldFilled;
+    bool animate;
 
     sf::Vector2<double> offsetLonLatOrigin;
     sf::Vector2<double> offsetLonLatDestination;
@@ -345,6 +358,8 @@ private:
     sf::RectangleShape dijkstraCheckBox;
     sf::Text aStarCheckBoxLabel;
     sf::RectangleShape aStarCheckBox;
+    sf::Text animationCheckBoxLabel;
+    sf::RectangleShape animationCheckBox;
 
     sf::Text submitButtonLabel;
     sf::RectangleShape submitButton;
@@ -462,6 +477,21 @@ private:
         }
     }
 
+    // Select the animation checkbox by changing the color of the box
+    void selectAnimate() 
+    {
+        if (animationCheckBox.getFillColor() == sf::Color::White)
+        {
+            animationCheckBox.setFillColor(sf::Color::Black);
+            animate = true;
+        }
+        else
+        {
+            animationCheckBox.setFillColor(sf::Color::White);
+            animate = false;
+        }
+    }
+
     //////////////////////////
     // Initial Construction //
     //////////////////////////
@@ -528,6 +558,17 @@ private:
         aStarCheckBox.setOutlineColor(sf::Color(128, 128, 128));
         aStarCheckBox.setOutlineThickness(1);
         aStarCheckBox.setPosition(aStarCheckBoxLabel.getPosition().x + aStarCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 75);
+
+        animationCheckBoxLabel.setFont(font);
+        animationCheckBoxLabel.setCharacterSize(15);
+        animationCheckBoxLabel.setFillColor(sf::Color::Black);
+        animationCheckBoxLabel.setString("Animate:");
+        animationCheckBoxLabel.setPosition(dijkstraCheckBoxLabel.getPosition().x, window->getSize().x - height + 90);
+        animationCheckBox.setSize(sf::Vector2f(10, 10));
+        animationCheckBox.setFillColor(sf::Color::White);
+        animationCheckBox.setOutlineColor(sf::Color(128, 128, 128));
+        animationCheckBox.setOutlineThickness(1);
+        animationCheckBox.setPosition(animationCheckBoxLabel.getPosition().x + animationCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 95);
     }
 
     void initTextElements(float height)

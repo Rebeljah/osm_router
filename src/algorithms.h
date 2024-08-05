@@ -241,11 +241,11 @@ public:
 
         if (algorithm == AlgoName::Dijkstras)
         {
-            return Dijkstra(startNodeIndex, endNodeIndex, mapGraph, true);
+            return Dijkstra(startNodeIndex, endNodeIndex, mapGraph, navBox.getAnimate());
         }
         else
         {
-            return aStarSearch(startNodeIndex, endNodeIndex, mapGraph, true);
+            return aStarSearch(startNodeIndex, endNodeIndex, mapGraph, navBox.getAnimate());
         }
     }
 };
