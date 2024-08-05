@@ -34,7 +34,7 @@ public:
         // connect the custom event queue to listen to the navbox event(s)
         eventQueue.subscribe(&navBox, ps::EventType::NavBoxSubmitted);
         eventQueue.subscribe(&navBox, ps::EventType::NavBoxFormChanged);
-        eventQueue.subscribe(&algorithms, ps::EventType::EdgeAnimated);
+        eventQueue.subscribe(&algorithms, ps::EventType::NodeTouched);
 
         // load map data in background. Done event will be handled in event loop.
         std::thread([this]()
@@ -124,7 +124,9 @@ private:
         will be active. To extract the data struct, use std::get<DataType>(event.data).
         Refer to the comments in the ps::EventType enum to determine which `DataType` to access.
         */
-        while (!eventQueue.empty())
+
+        int nEvents = eventQueue.size();
+        for (int i = 0; i < nEvents; ++i)
         {
             ps::Event event = eventQueue.popNext();
 
@@ -149,7 +151,7 @@ private:
                 std::thread([this, origin, destination, algoName]()
                             {
                         auto startTime = std::chrono::high_resolution_clock().now();
-                        vector<GraphNodeIndex> path = algorithms.findShortestPath(origin, destination, algoName, mapGraph, mapGeometry, route, window, viewport, navBox);
+                        vector<GraphNodeIndex> path = algorithms.findShortestPath(origin, destination, algoName, mapGraph, mapGeometry, window, viewport, navBox);
                         auto endTime = std::chrono::high_resolution_clock().now();
                         // push an event with the completed route data
                         ps::Event event(ps::EventType::RouteCompleted);
@@ -157,34 +159,19 @@ private:
                         this->eventQueue.onEvent(event); })
                     .detach();
             }
-            // Attemps to animate the edges being traversed in the route if animate is selected
-            else if (event.type == ps::EventType::EdgeAnimated) 
+            else if (event.type == ps::EventType::NodeTouched)
             {
-                auto data = std::get<ps::Data::AnimatedEdge>(event.data);
-                PointPath routePath;
-                auto storage = sql::loadStorage("./db/map.db");
-
-                for (GraphEdgeIndex idx : data.edgeIndices)
-                {
-                    GraphEdge graphEdge = mapGraph.getEdge(idx);
-
-                    sql::Edge edge = storage.get<sql::Edge>(graphEdge.sqlID);
-                    PointPath edgePath(edge.pathOffsetPoints);
-                    if (!graphEdge.isPrimary)
-                    {
-                        edgePath.reverse();
-                    }
-                    routePath.extend(edgePath);
-                }
-                route.path = routePath;
-
-                // FIXME: Currently aborts early with 'double free or corruption (!prev)' error
-                route.render(window, (Rectangle<double>)viewport);
-                window.display();
+                auto lonLat = std::get<ps::Data::Vector2>(event.data);
+                animationPoints.push({mapGeometry.getChunkRowCol(lonLat.y, lonLat.x), sf::Vector2<double>(lonLat.x, lonLat.y)});
             }
             else if (event.type == ps::EventType::NavBoxFormChanged)
             {
                 route.path.clear();
+                for (ChunkSprite * sprite : chunkSpriteLoader.getAllLoaded())
+                {
+                    if (sprite->hasDots)
+                        chunkSpriteLoader.unCache(sprite->row, sprite->col);
+                }
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
@@ -199,7 +186,7 @@ private:
                 for (GraphEdgeIndex idx : data.edgeIndices)
                 {
                     GraphEdge graphEdge = mapGraph.getEdge(idx);
-                    
+
                     totalDistance += graphEdge.weight;
 
                     sql::Edge edge = storage.get<sql::Edge>(graphEdge.sqlID);
@@ -233,6 +220,24 @@ private:
     {
         window.clear(sf::Color(247, 246, 246, 255));
 
+        int n = animationPoints.size();
+        for (int i = 0; i < n && i < 450; ++i)
+        {
+            auto [chunkCoord, offsetGeoCoord] = animationPoints.front();
+            animationPoints.pop();
+
+            auto [chunkRow, chunkCol] = chunkCoord;
+            if (!chunkSpriteLoader.has(chunkRow, chunkCol))
+            {
+                animationPoints.push({chunkCoord, offsetGeoCoord});
+                continue;
+            }
+
+            ChunkSprite *sprite = *chunkSpriteLoader.get(chunkRow, chunkCol);
+
+            sprite->renderDot(offsetGeoCoord, &mapGeometry);
+        }
+
         // determine the range of chunks that are inside of the viewport to render
         auto overlap = mapGeometry.calculateOverlappingChunks(mapGeometry.toGeoRectangle(viewport));
 
@@ -264,8 +269,8 @@ private:
             }
         }
 
-        // Draws a navigation box at the bottom-left of the screen
         route.render(window, (Rectangle<double>)viewport);
+
         navBox.draw(window);
         toaster.render(window);
         window.display();
@@ -286,6 +291,8 @@ private:
     ChunkSpriteLoader chunkSpriteLoader;
     MapGeometry mapGeometry;
     MapGraph mapGraph;
+
+    std::queue<std::pair<std::pair<int, int>, sf::Vector2<double>>> animationPoints;
 
     ps::EventQueue eventQueue;
 };

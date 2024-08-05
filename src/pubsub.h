@@ -31,7 +31,7 @@ namespace ps
         NavBoxSubmitted, // NavBoxForm
         NavBoxFormChanged, // NavBoxForm
         RouteCompleted,  // CompleteRoute
-        EdgeAnimated,    // AnimatedEdge
+        NodeTouched  // Vector2
     };
 
     namespace Data
@@ -60,13 +60,11 @@ namespace ps
             std::chrono::duration<double> runTime;
         };
 
-        /**
-         * Contains data about an edge to be animated
-         */
-        struct AnimatedEdge
+        struct Vector2
         {
-            AnimatedEdge(std::vector<int> edgeIndices) : edgeIndices(edgeIndices) {}
-            std::vector<int> edgeIndices;
+            Vector2(double x, double y) : x(x), y(y) {}
+            double x = 0;
+            double y = 0;
         };
     };
 
@@ -82,7 +80,7 @@ namespace ps
         Event(EventType type) : type(type) {}
 
         EventType type;
-        std::variant<std::monostate, Data::NavBoxForm, Data::CompleteRoute, Data::AnimatedEdge> data;
+        std::variant<std::monostate, Data::NavBoxForm, Data::CompleteRoute, Data::Vector2> data;
     };
 
     class ISubscriber; // fwd declaration

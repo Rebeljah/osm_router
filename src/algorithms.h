@@ -14,27 +14,6 @@ class Algorithms : public ps::Publisher
 {
 public:
     /**
-     * Updates the route with the edge that is being animated.
-     *
-     * @param edgeIndex The index of the edge to update
-     * @param mapGraph The graph to search
-     * @param route The route to update
-     */
-    void updateAnimatedRoute(GraphEdgeIndex edgeIndex, MapGraph &mapGraph, Route &route) 
-    {
-        auto storage = sql::loadStorage("./db/map.db");
-
-        GraphEdge graphEdge = mapGraph.getEdge(edgeIndex);
-        sql::Edge edge = storage.get<sql::Edge>(graphEdge.sqlID);
-        PointPath edgePath(edge.pathOffsetPoints);
-        if (!graphEdge.isPrimary)
-        {
-            edgePath.reverse();
-        }
-        route.path.extend(edgePath);
-    }
-
-    /**
      * Finds the shortest path between two nodes using Dijkstra's algorithm.
      *
      * @param startNodeIndex The index of the start node
@@ -42,7 +21,7 @@ public:
      * @param graph The graph to search
      * @return The shortest path between the two nodes
      */
-    vector<GraphEdgeIndex> Dijkstra(GraphNodeIndex startNodeIndex, GraphNodeIndex endNodeIndex, MapGraph &graph, bool animate, Route &route)
+    vector<GraphEdgeIndex> Dijkstra(GraphNodeIndex startNodeIndex, GraphNodeIndex endNodeIndex, MapGraph &graph, bool animate)
     {
         vector<long long int> weights(graph.getNodeCount(), 9999999999999);
         weights[startNodeIndex] = 0; // The distance from the start node to itself is 0.
@@ -56,7 +35,6 @@ public:
         minPQ.push(make_pair(0, startNodeIndex));
 
         set<GraphEdgeIndex> visitedEdges;    // Not used if animation is disabled.
-        vector<GraphEdgeIndex> edgesToAnimate;  // Not used if animation is disabled.
 
         while (!minPQ.empty())
         {
@@ -70,14 +48,10 @@ public:
                 GraphEdge edge = graph.getEdge(edgeIndex);
                 GraphNodeIndex targetNodeIndex = edge.to;
 
-                // Adds the edge to the animation vector if it hasn't been visited yet.
-                // And emits the event so that the main loop can animate the edge while the algorithm is running.
-                if (animate && visitedEdges.find(edgeIndex) == visitedEdges.end()) {
-                    visitedEdges.insert(edgeIndex);
-                    ps::Event event(ps::EventType::EdgeAnimated);
-                    updateAnimatedRoute(edgeIndex, graph, route);
-                    edgesToAnimate.push_back(edgeIndex);
-                    event.data = ps::Data::AnimatedEdge(edgesToAnimate);
+                if (animate)
+                {
+                    ps::Event event(ps::EventType::NodeTouched);
+                    event.data = ps::Data::Vector2(currentNode.data.offsetLon, currentNode.data.offsetLat);
                     emitEvent(event);
                 }
 
@@ -247,7 +221,7 @@ public:
      *
      * @return The shortest path
      */
-    vector<GraphEdgeIndex> findShortestPath(sf::Vector2<double> offsetLonLatOrigin, sf::Vector2<double> offsetLonLatDestination, AlgoName algorithm, MapGraph &mapGraph, MapGeometry &mapGeometry, Route &route, sf::RenderWindow &window, Viewport viewport, NavBox &navBox)
+    vector<GraphEdgeIndex> findShortestPath(sf::Vector2<double> offsetLonLatOrigin, sf::Vector2<double> offsetLonLatDestination, AlgoName algorithm, MapGraph &mapGraph, MapGeometry &mapGeometry, sf::RenderWindow &window, Viewport viewport, NavBox &navBox)
     {
         // Get the origin and destination nodes
         pair<int, int> startChunkCoordinate = mapGeometry.getChunkRowCol(offsetLonLatOrigin.y, offsetLonLatOrigin.x);
@@ -259,7 +233,7 @@ public:
 
         if (algorithm == AlgoName::Dijkstras)
         {
-            return Dijkstra(startNodeIndex, endNodeIndex, mapGraph, true, route);
+            return Dijkstra(startNodeIndex, endNodeIndex, mapGraph, true);
         }
         else
         {

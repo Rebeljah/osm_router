@@ -213,7 +213,7 @@ private:
 
 struct ChunkSprite : sf::Sprite
 {
-    ChunkSprite(Rectangle<double> rect) : rect(rect)
+    ChunkSprite(Rectangle<double> rect, int row, int col) : rect(rect), row(row), col(col)
     {
         // Drawing will be done on a RenderTexture so that it can be cached
         // this avoid redrawing all of the roads on each frame
@@ -242,8 +242,21 @@ struct ChunkSprite : sf::Sprite
         renderTexture.draw(path);
     }
 
+    void renderDot(sf::Vector2<double> geoCoordinate, MapGeometry *mapGeometry)
+    {
+        hasDots = true;
+        auto position = mapGeometry->toPixelVector(geoCoordinate);
+        position -= {rect.left, rect.top};
+        sf::Vertex point(sf::Vector2f(position), sf::Color::Red);
+        renderTexture.draw(&point, 1, sf::Points);
+        renderTexture.display();
+    }
+
     sf::RenderTexture renderTexture;
     Rectangle<double> rect;
+    bool hasDots = false;
+    int row;
+    int col;
 };
 
 class ChunkSpriteLoader
@@ -279,10 +292,36 @@ public:
         // chunk is loaded, so it can be used to render sprite
         renderChunkSprite(**chunkOpt, row, col);
         renderInterchunkEdges();
-        chunkLoader.unCache(row, col);
+        // chunkLoader.unCache(row, col);
 
         m_grid[row][col]->renderTexture.display();
         return m_grid[row][col];
+    }
+
+    bool has(int row, int col)
+    {
+        return m_grid.size() > row && m_grid[row].size() > col && m_grid[row][col] != nullptr;
+    }
+
+    void unCache(int row, int col)
+    {
+        delete m_grid[row][col];
+        m_grid[row][col] = nullptr;
+    }
+
+    std::vector<ChunkSprite *> getAllLoaded()
+    {
+        std::vector<ChunkSprite *> res;
+        for (auto &row : m_grid)
+        {
+            for (ChunkSprite *sprite : row)
+            {
+                if (sprite != nullptr)
+                    res.push_back(sprite);
+            }
+        }
+
+        return res;
     }
 
 private:
@@ -294,7 +333,7 @@ private:
              m_pMapGeometry->getChunkGeoSize(),
              m_pMapGeometry->getChunkGeoSize()});
 
-        auto chunkSprite = new ChunkSprite(rect);
+        auto chunkSprite = new ChunkSprite(rect, row, col);
 
         // render all edges in the chunk onto the chunkSprite texture
         for (auto &[_, node] : chunk.nodes)
