@@ -24,7 +24,7 @@
 - Below is an exmaple Makefile that defines tasks for building the DB. Since the CSV data linked above is already filtered to Florida only, you do not need to run the `filter_csv` command.
 1. Create the db by running the `create_db` make command
 2. Populate the db by running the `fill_db` command (make take ~15 minutes)
-3. Remove unused edges and nodes by running the `clean_db` command, this remove bike and walking paths from the database (only car accessible roads are used)
+3. Remove unused edges and nodes by running the `clean_db` command, this removes bike and walking paths from the database (only car accessible roads are used)
 - after these steps, the db directory should contain a sqlite database that is ready to use by the app.
 ```Makefile
 osm4routing: # converts pbf to nodes.csv and edges.csv
