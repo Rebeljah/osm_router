@@ -172,6 +172,9 @@ private:
                     if (sprite->hasDots)
                         chunkSpriteLoader.unCache(sprite->row, sprite->col);
                 }
+
+                while (animationPoints.size())
+                    animationPoints.pop();
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
