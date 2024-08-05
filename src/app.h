@@ -20,7 +20,7 @@
 class App
 {
 public:
-    App() : window(sf::VideoMode(800, 800), "NaviGator")
+    App() : window(sf::VideoMode(1600, 900), "NaviGator")
     {
         using Degree = double;
         Degree mapTop = *config["map"]["bbox_top"].value<double>();
@@ -28,7 +28,6 @@ public:
         Degree mapBottom = *config["map"]["bbox_bottom"].value<double>();
         Degree mapRight = *config["map"]["bbox_right"].value<double>();
         Degree viewportW = *config["viewport"]["default_w"].value<double>();
-        Degree viewportH = *config["viewport"]["default_h"].value<double>();
         Degree chunkSize = *config["map"]["chunk_size"].value<double>();
 
         // connect the custom event queue to listen to the navbox event(s)
@@ -44,7 +43,7 @@ public:
             .detach();
 
         mapGeometry = MapGeometry(
-            800 / viewportW,                                           // pixels per degree
+            1600 / viewportW,                                          // pixels per degree
             {mapTop, mapLeft, mapRight - mapLeft, mapTop - mapBottom}, // map geo area
             chunkSize                                                  // chunk geo size
         );
@@ -52,8 +51,8 @@ public:
         route.mapGeometry = &mapGeometry;
 
         sf::Vector2<double> viewportGeoSize = {
-            *config["viewport"]["default_w"].value<double>(),
-            *config["viewport"]["default_h"].value<double>()};
+            viewportW,
+            viewportW * (16.0f / 9)};
 
         viewport = Viewport(mapGeometry.toPixelVector(viewportGeoSize), &mapGeometry);
 
@@ -167,7 +166,7 @@ private:
             else if (event.type == ps::EventType::NavBoxFormChanged)
             {
                 route.path.clear();
-                for (ChunkSprite * sprite : chunkSpriteLoader.getAllLoaded())
+                for (ChunkSprite *sprite : chunkSpriteLoader.getAllLoaded())
                 {
                     if (sprite->hasDots)
                         chunkSpriteLoader.unCache(sprite->row, sprite->col);

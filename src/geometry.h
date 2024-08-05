@@ -107,7 +107,7 @@ struct Rectangle : public sf::Rect<T>
     void centerOnPoint(sf::Vector2<T> pointVector)
     {
         this->left = pointVector.x - this->width / 2;
-        this->top = pointVector.y - this->height / 2;
+        this->top = pointVector.y + this->height / 2;
     }
 };
 

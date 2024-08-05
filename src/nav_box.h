@@ -477,7 +477,7 @@ private:
         backgroundBox.setFillColor(sf::Color(255, 255, 255, 220));
         backgroundBox.setOutlineColor(sf::Color(255, 165, 0, 200));
         backgroundBox.setOutlineThickness(-3);
-        backgroundBox.setPosition(0, window->getSize().x - height);
+        backgroundBox.setPosition(0, window->getSize().y - height);
     }
 
     void initInputBoxes(float height)
@@ -486,10 +486,10 @@ private:
         originLabel.setCharacterSize(15);
         originLabel.setFillColor(sf::Color::Black);
         originLabel.setString("A:");
-        originLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 15);
+        originLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().y - height + 15);
         originInputBox.setSize(sf::Vector2f(backgroundBox.getSize().x - 50, 20));
         originInputBox.setFillColor(sf::Color::White);
-        originInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().x - height + 15);
+        originInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().y - height + 15);
         originInputBox.setOutlineColor(sf::Color(128, 128, 128));
         originInputBox.setOutlineThickness(1);
 
@@ -497,10 +497,10 @@ private:
         destinationLabel.setCharacterSize(15);
         destinationLabel.setFillColor(sf::Color::Black);
         destinationLabel.setString("B: ");
-        destinationLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 45);
+        destinationLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().y - height + 45);
         destinationInputBox.setSize(sf::Vector2f(backgroundBox.getSize().x - 50, 20));
         destinationInputBox.setFillColor(sf::Color::White);
-        destinationInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().x - height + 45);
+        destinationInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().y - height + 45);
         destinationInputBox.setOutlineColor(sf::Color(128, 128, 128));
         destinationInputBox.setOutlineThickness(1);
     }
@@ -511,23 +511,23 @@ private:
         dijkstraCheckBoxLabel.setCharacterSize(15);
         dijkstraCheckBoxLabel.setFillColor(sf::Color::Black);
         dijkstraCheckBoxLabel.setString("Dijkstra:");
-        dijkstraCheckBoxLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 70);
+        dijkstraCheckBoxLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().y - height + 70);
         dijkstraCheckBox.setSize(sf::Vector2f(10, 10));
         dijkstraCheckBox.setFillColor(sf::Color::White);
         dijkstraCheckBox.setOutlineColor(sf::Color(128, 128, 128));
         dijkstraCheckBox.setOutlineThickness(1);
-        dijkstraCheckBox.setPosition(dijkstraCheckBoxLabel.getPosition().x + dijkstraCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 75);
+        dijkstraCheckBox.setPosition(dijkstraCheckBoxLabel.getPosition().x + dijkstraCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().y - height + 75);
 
         aStarCheckBoxLabel.setFont(font);
         aStarCheckBoxLabel.setCharacterSize(15);
         aStarCheckBoxLabel.setFillColor(sf::Color::Black);
         aStarCheckBoxLabel.setString("A*:");
-        aStarCheckBoxLabel.setPosition(dijkstraCheckBox.getPosition().x + dijkstraCheckBox.getSize().x + 10, window->getSize().x - height + 70);
+        aStarCheckBoxLabel.setPosition(dijkstraCheckBox.getPosition().x + dijkstraCheckBox.getSize().x + 10, window->getSize().y - height + 70);
         aStarCheckBox.setSize(sf::Vector2f(10, 10));
         aStarCheckBox.setFillColor(sf::Color::White);
         aStarCheckBox.setOutlineColor(sf::Color(128, 128, 128));
         aStarCheckBox.setOutlineThickness(1);
-        aStarCheckBox.setPosition(aStarCheckBoxLabel.getPosition().x + aStarCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 75);
+        aStarCheckBox.setPosition(aStarCheckBoxLabel.getPosition().x + aStarCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().y - height + 75);
     }
 
     void initTextElements(float height)
@@ -535,11 +535,11 @@ private:
         originText.setFont(font);
         originText.setCharacterSize(13);
         originText.setFillColor(sf::Color::Black);
-        originText.setPosition(originInputBox.getPosition().x + 5, window->getSize().x - height + 17);
+        originText.setPosition(originInputBox.getPosition().x + 5, window->getSize().y - height + 17);
         destinationText.setFont(font);
         destinationText.setCharacterSize(13);
         destinationText.setFillColor(sf::Color::Black);
-        destinationText.setPosition(destinationInputBox.getPosition().x + 5, window->getSize().x - height + 47);
+        destinationText.setPosition(destinationInputBox.getPosition().x + 5, window->getSize().y - height + 47);
     }
 
     void initSubmitButton(float height, float width)
@@ -548,13 +548,13 @@ private:
         submitButton.setFillColor(sf::Color::Magenta);
         submitButton.setOutlineColor(sf::Color::Black);
         submitButton.setOutlineThickness(1);
-        submitButton.setPosition(width - 65, window->getSize().x - height + 70);
+        submitButton.setPosition(width - 65, window->getSize().y - height + 70);
 
         submitButtonLabel.setFont(font);
         submitButtonLabel.setCharacterSize(15);
         submitButtonLabel.setFillColor(sf::Color::Black);
         submitButtonLabel.setString("Go");
-        submitButtonLabel.setPosition(width - 52, window->getSize().x - height + 70);
+        submitButtonLabel.setPosition(width - 52, window->getSize().y - height + 70);
     }
 
     void initSubmitResultText()
@@ -562,6 +562,6 @@ private:
         submissionResultText.setFont(font);
         submissionResultText.setCharacterSize(13);
         submissionResultText.setFillColor(sf::Color::Black);
-        submissionResultText.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 95);
+        submissionResultText.setPosition(backgroundBox.getPosition().x + 10, window->getSize().y - height + 95);
     }
 };
