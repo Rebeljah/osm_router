@@ -205,7 +205,7 @@ private:
 
                 toaster.removeToast("finding_route");
                 std::cout << data.edgeIndices.size() << "edges " << std::endl;
-                toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + to_string(totalDistance) + " meters.", "route_found", sf::seconds(7));
+                toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + to_string(totalDistance / 1000) + " Km.", "route_found", sf::seconds(7));
             }
         }
     }
