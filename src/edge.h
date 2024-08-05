@@ -108,19 +108,21 @@ struct Edge
             carFwd == PathDescriptor::Motorway || carFwd == PathDescriptor::Trunk ||
             carBwd == PathDescriptor::Motorway || carBwd == PathDescriptor::Trunk)
         {
-            color = sf::Color(112, 144, 178, 255);
+            // color = sf::Color(112, 144, 178, 255);
+            color = sf::Color(70, 130, 180, 255);   // Blue
         }
         else if (
             carFwd == PathDescriptor::Primary || carFwd == PathDescriptor::Secondary ||
             carBwd == PathDescriptor::Primary || carBwd == PathDescriptor::Secondary)
         {
-            color = sf::Color(0, 0, 0, 255);
+            // color = sf::Color(0, 0, 0, 255);
+            color = sf::Color(255, 165, 0, 255);  // Orange
         }
         else if (
             carFwd == PathDescriptor::Tertiary || carFwd == PathDescriptor::Residential ||
             carBwd == PathDescriptor::Tertiary || carBwd == PathDescriptor::Residential)
         {
-            color = sf::Color(198, 202, 210, 255);
+            color = sf::Color(198, 202, 210, 255);  // Gray
         }
     }
 };

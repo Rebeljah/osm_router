@@ -203,9 +203,19 @@ private:
 
                 route.path = routePath;
 
+                double totalDistanceKM = totalDistance / 1000.0;
+                string distanceString = to_string(totalDistanceKM);
+                distanceString = distanceString.substr(0, distanceString.find(".") + 2);
+
                 toaster.removeToast("finding_route");
                 std::cout << data.edgeIndices.size() << "edges " << std::endl;
-                toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + to_string(totalDistance / 1000) + " Km.", "route_found", sf::seconds(7));
+
+                if (totalDistance > 3000) {
+                    toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + distanceString + " Km.", "route_found", sf::seconds(5));
+                }
+                else {
+                    toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + to_string(totalDistance) + " m.", "route_found", sf::seconds(5));
+                }
             }
         }
     }
@@ -221,7 +231,8 @@ private:
 
     void render()
     {
-        window.clear(sf::Color(247, 246, 246, 255));
+        // window.clear(sf::Color(247, 246, 246, 255));
+        window.clear(sf::Color(245, 245, 245, 255));
 
         int n = animationPoints.size();
         for (int i = 0; i < n && i < 450; ++i)
