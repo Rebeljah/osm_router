@@ -114,7 +114,7 @@ public:
      * @param graph The graph to search
      * @return The shortest path between the two nodes
      */
-    vector<GraphEdgeIndex> aStarSearch(GraphNodeIndex startNodeIndex, GraphNodeIndex endNodeIndex, MapGraph &graph)
+    vector<GraphEdgeIndex> aStarSearch(GraphNodeIndex startNodeIndex, GraphNodeIndex endNodeIndex, MapGraph &graph, bool animate)
     {
         /*
         This is very similar to Djikstra's algorithm, but with a heuristic added to the weights.
@@ -155,6 +155,14 @@ public:
 
             for (auto edgeIndex : currentNode.outEdges)
             {
+
+                if (animate)
+                {
+                    ps::Event event(ps::EventType::NodeTouched);
+                    event.data = ps::Data::Vector2(currentNode.data.offsetLon, currentNode.data.offsetLat);
+                    emitEvent(event);
+                }
+
                 GraphEdge edge = graph.getEdge(edgeIndex);
                 GraphNodeIndex targetNodeIndex = edge.to;
                 GraphNode nextNode = graph.getNode(targetNodeIndex);
@@ -237,7 +245,7 @@ public:
         }
         else
         {
-            return aStarSearch(startNodeIndex, endNodeIndex, mapGraph);
+            return aStarSearch(startNodeIndex, endNodeIndex, mapGraph, true);
         }
     }
 };
