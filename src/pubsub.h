@@ -31,6 +31,7 @@ namespace ps
         NavBoxSubmitted, // NavBoxForm
         NavBoxFormChanged, // NavBoxForm
         RouteCompleted,  // CompleteRoute
+        NodeTouched  // Vector2
     };
 
     namespace Data
@@ -58,6 +59,13 @@ namespace ps
             std::vector<int> edgeIndices;
             std::chrono::duration<double> runTime;
         };
+
+        struct Vector2
+        {
+            Vector2(double x, double y) : x(x), y(y) {}
+            double x = 0;
+            double y = 0;
+        };
     };
 
     struct Event
@@ -72,7 +80,7 @@ namespace ps
         Event(EventType type) : type(type) {}
 
         EventType type;
-        std::variant<std::monostate, Data::NavBoxForm, Data::CompleteRoute> data;
+        std::variant<std::monostate, Data::NavBoxForm, Data::CompleteRoute, Data::Vector2> data;
     };
 
     class ISubscriber; // fwd declaration
