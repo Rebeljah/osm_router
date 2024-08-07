@@ -4,8 +4,6 @@
 #include "geometry.h"
 #include <utility>
 #include <queue>
-#include <set>
-#include <limits>
 #include "pubsub.h"
 
 using namespace std;
