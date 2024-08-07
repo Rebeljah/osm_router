@@ -1,6 +1,5 @@
 #include <iostream>
 #include <SFML/Graphics.hpp>
-#include "app.h"
 #include "geometry.h"
 #include <utility>
 #include <queue>

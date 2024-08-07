@@ -4,7 +4,6 @@
 #include <SFML/Graphics.hpp>
 #include "tomlplusplus/toml.hpp"
 
-#include "node.h"
 #include "viewport.h"
 #include "geometry.h"
 #include "pubsub.h"
