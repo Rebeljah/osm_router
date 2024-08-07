@@ -27,6 +27,15 @@ struct GraphNode
 class MapGraph
 {
 public:
+    /**
+     * Loads graph data from the specified database path and initializes internal graph.
+     *
+     * Populates nodes and edges from the database into the graph. It updates chunked node storage
+     * and maps SQL node IDs to graph node indices. Edges are also loaded and linked to the appropriate nodes.
+     * This method is idempotent.
+     *
+     * @param dbPath The path to the database file from which to load graph data.
+     */
     void load(std::string dbPath)
     {
         if (isLoaded)
@@ -80,13 +89,23 @@ public:
         isLoaded = true;
     }
 
+    /**
+     * Finds the index of the node that is nearest to a given point specified by longitude and latitude offsets.
+     *
+     * This method searches through the nodes in a given chunk and find the node with the shortest straight
+     * line distance to the given point.
+     *
+     * @param chunkRow The row index of the chunk in which to search for nodes.
+     * @param chunkCol The column index of the chunk in which to search for nodes.
+     * @param offsetLongitude The offset longitude of the point.
+     * @param offsetLatitude The offset latitude of the point.
+     *
+     * @return The index of the nearest node within the specified chunk
+     */
     GraphNodeIndex findNearestNode(int chunkRow, int chunkCol, double offsetLongitude, double offsetLatitude)
     {
         using std::pow;
         using std::sqrt;
-
-        if (nodes.empty())
-            throw std::domain_error("Vector of nodes is empty");
 
         double x0 = offsetLongitude;
         double y0 = offsetLatitude;
