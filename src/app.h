@@ -43,7 +43,7 @@ public:
             .detach();
 
         mapGeometry = MapGeometry(
-            float(this->window.getSize().x) / viewportW,                                          // pixels per degree
+            float(this->window.getSize().x) / viewportW,               // pixels per degree
             {mapTop, mapLeft, mapRight - mapLeft, mapTop - mapBottom}, // map geo area
             chunkSize                                                  // chunk geo size
         );

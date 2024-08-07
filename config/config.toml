@@ -7,8 +7,6 @@ bbox_left = -84.6018      # longitude
 bbox_right = -79.9002     # longitude
 bbox_bottom = 24.4019     # latitude
 bbox_top = 30.7015        # latitude
-avg_chunk_size = 0.112764 # megabytes
-chunk_cache_size = 512    # megabytes
 
 [viewport]
 default_w = 0.8 #degrees
