@@ -30,7 +30,7 @@ public:
         Degree viewportW = *config["viewport"]["default_w"].value<double>();
         Degree chunkSize = *config["map"]["chunk_size"].value<double>();
 
-        // connect the custom event queue to listen to the navbox event(s)
+        // connect the custom event queue to listen to events from different publishers
         eventQueue.subscribe(&navBox, ps::EventType::NavBoxSubmitted);
         eventQueue.subscribe(&navBox, ps::EventType::NavBoxFormChanged);
         eventQueue.subscribe(&algorithms, ps::EventType::NodeTouched);
@@ -167,7 +167,7 @@ private:
             }
             else if (event.type == ps::EventType::NavBoxFormChanged)
             {
-                // Clear the route and remove all dots from the map when the navbox form changes 
+                // Clear the route and remove all dots from the map when the navbox form changes
                 // Because the route no longer exists.
                 route.path.clear();
                 for (ChunkSprite *sprite : chunkSpriteLoader.getAllLoaded())
@@ -181,7 +181,7 @@ private:
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
-                // In the case the a route has been found, 
+                // In the case the a route has been found,
                 // The route's edges will be displayed on the map.
                 // And a message of confirmation will be displayed.
 
@@ -213,14 +213,16 @@ private:
                 toaster.removeToast("finding_route");
                 std::cout << data.edgeIndices.size() << "edges " << std::endl;
 
-                if (totalDistance > 3000) {
+                if (totalDistance > 3000)
+                {
                     // Convert total distance to kilometers before display.
                     double totalDistanceKM = totalDistance / 1000.0;
                     string distanceString = to_string(totalDistanceKM);
                     distanceString = distanceString.substr(0, distanceString.find(".") + 2);
                     toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + distanceString + " Km.", "route_found", sf::seconds(5));
                 }
-                else {
+                else
+                {
                     toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + to_string(totalDistance) + " m.", "route_found", sf::seconds(5));
                 }
             }

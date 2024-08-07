@@ -239,7 +239,7 @@ public:
 
         if (!originFieldSelected && !destinationFieldSelected)
             return;
-        
+
         emitEvent(ps::Event(ps::EventType::NavBoxFormChanged));
 
         if (originFieldSelected)
@@ -276,9 +276,9 @@ public:
 
     /**
      * Draws the navbox elements on the window.
-     * 
+     *
      * @param window: The window to draw the navbox elements on.
-    */
+     */
     void draw(sf::RenderWindow &window)
     {
         window.draw(backgroundBox);
@@ -311,7 +311,7 @@ public:
         }
     }
 
-    // Returns the selected algorithm 
+    // Returns the selected algorithm
     AlgoName getSelectedAlgorithm()
     {
         return selectedAlgorithm;
@@ -424,7 +424,6 @@ private:
         destinationFieldFilled = true;
     }
 
-
     // Activates the origin field and makes the outline thicker to show that is has been selected
     void activateOriginField()
     {
@@ -498,7 +497,7 @@ private:
     }
 
     // Select the animation checkbox by changing the color of the box
-    void selectAnimate() 
+    void selectAnimate()
     {
         if (animationCheckBox.getFillColor() == sf::Color::White)
         {

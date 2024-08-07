@@ -7,7 +7,7 @@
 
 using namespace std;
 
-class Algorithms : public ps::Publisher 
+class Algorithms : public ps::Publisher
 {
 public:
     /**
@@ -31,7 +31,7 @@ public:
         priority_queue<pair<int, GraphNodeIndex>, vector<pair<int, GraphNodeIndex>>, greater<pair<int, GraphNodeIndex>>> minPQ;
         minPQ.push(make_pair(0, startNodeIndex));
 
-        set<GraphEdgeIndex> visitedEdges;    // Not used if animation is disabled.
+        set<GraphEdgeIndex> visitedEdges; // Not used if animation is disabled.
 
         while (!minPQ.empty())
         {
@@ -153,7 +153,7 @@ public:
 
             for (auto edgeIndex : currentNode.outEdges)
             {
-                
+
                 // In the case of an animation we want to emit an event to update the UI.
                 if (animate)
                 {
