@@ -20,7 +20,7 @@
 class App
 {
 public:
-    App() : window(sf::VideoMode(1000, 1000), "GatorMaps")
+    App() : window(sf::VideoMode(1600, 900), "GatorMaps")
     {
         using Degree = double;
         Degree mapTop = *config["map"]["bbox_top"].value<double>();
@@ -43,7 +43,7 @@ public:
             .detach();
 
         mapGeometry = MapGeometry(
-            1000 / viewportW,                                          // pixels per degree
+            float(this->window.getSize().x) / viewportW,                                          // pixels per degree
             {mapTop, mapLeft, mapRight - mapLeft, mapTop - mapBottom}, // map geo area
             chunkSize                                                  // chunk geo size
         );
@@ -52,7 +52,7 @@ public:
 
         sf::Vector2<double> viewportGeoSize = {
             viewportW,
-            viewportW * (16.0f / 9)};
+            viewportW * (float(this->window.getSize().y) / this->window.getSize().x)};
 
         viewport = Viewport(mapGeometry.toPixelVector(viewportGeoSize), &mapGeometry);
 
