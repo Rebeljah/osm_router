@@ -20,7 +20,7 @@
 class App
 {
 public:
-    App() : window(sf::VideoMode(1600, 900), "GatorMaps")
+    App() : window(sf::VideoMode(1080, 1080), "GatorMaps")
     {
         using Degree = double;
         Degree mapTop = *config["map"]["bbox_top"].value<double>();
