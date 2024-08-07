@@ -6,20 +6,6 @@
 using std::string;
 using std::vector;
 
-// code adapted from: https://www.geeksforgeeks.org/unordered-set-of-pairs-in-c-with-examples/#
-/*
-This type can be passed into types that require hashing pairs such as unordered maps or unordered sets
-example usage: unordered_set<pair<string, string>, PairHasher<string>> foo;
-*/
-template <typename T>
-struct PairHasher
-{
-    size_t operator()(const std::pair<T, T> &pair) const
-    {
-        return std::hash<T>{}(pair.first) ^ std::hash<T>{}(pair.second);
-    }
-};
-
 // https://gist.github.com/tcmug/9712f9192571c5fe65c362e6e86266f8
 vector<string> splitString(string s, string delim)
 {
