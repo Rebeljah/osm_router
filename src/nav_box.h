@@ -26,31 +26,37 @@ public:
         sprite.setScale(0.15, 0.15);
     }
 
+    // Returns the sprite of the pin
     sf::Sprite &getSprite()
     {
         return sprite;
     }
 
+    // Returns the pin's position in terms of pixels from the top left of the map.
     sf::Vector2<double> getPixelPosition()
     {
         return mapPosition;
     }
 
+    // Returns the pin's position in terms of offset latitude and longitude from the top left of the map.
     sf::Vector2<double> getGeoPosition()
     {
         return offsetGeoPosition;
     }
 
+    // Sets the pin's position in terms of pixels from the top left of the map.
     void setPixelPosition(sf::Vector2<double> position)
     {
         mapPosition = position;
     }
 
+    // Sets the pin's position in terms of offset latitude and longitude from the top left of the map.
     void setGeoPosition(sf::Vector2<double> position)
     {
         offsetGeoPosition = position;
     }
 
+    // Sets the pin's position in terms of pixels from the top left of the window.
     void setSpritePosition(sf::Vector2<double> position)
     {
         sprite.setPosition(position.x, position.y);
@@ -96,6 +102,7 @@ public:
         initPins();
     }
 
+    // Returns the background rectangle of the navbox
     sf::RectangleShape getBox()
     {
         return backgroundBox;
@@ -109,16 +116,18 @@ public:
      */
     void handleClick(sf::Event clickEvent)
     {
+        // Any other clicks besides left clicks are ignored.
         if (clickEvent.mouseButton.button != sf::Mouse::Left)
             return;
 
         int x = clickEvent.mouseButton.x;
         int y = clickEvent.mouseButton.y;
-        bool formChanged = false;
 
+        // Clicks outside of the navbox are ignored.
         if (!backgroundBox.getGlobalBounds().contains(x, y))
             return;
 
+        // Clicks on the checkboxes should select them.
         if (dijkstraCheckBox.getGlobalBounds().contains(x, y))
         {
             selectDijkstra();
@@ -136,7 +145,6 @@ public:
         {
             activateOriginField();
             deactivateDestinationField();
-            formChanged = true;
         }
         // An origin should be required (filled) before altering the destination
         else if (destinationInputBox.getGlobalBounds().contains(x, y))
@@ -145,7 +153,6 @@ public:
             {
                 activateDestinationField();
                 deactivateOriginField();
-                formChanged = true;
             }
         }
 
@@ -168,12 +175,6 @@ public:
                 submissionResultText.setString("Error: Both fields not filled.");
             }
         }
-
-        // if (formChanged)
-        // {
-        //     ps::Event event(ps::EventType::NavBoxFormChanged);
-        //     emitEvent(event);
-        // }
     }
 
     /**
@@ -221,7 +222,7 @@ public:
     }
 
     /**
-     * Updates the navbox elements based on mouse clicks.
+     * Updates the navbox elements and the map pins based on mouse clicks.
      *
      * Takes the coordinates of a click and converts them to global coordinates, then updates the input fields.
      *
@@ -274,6 +275,11 @@ public:
         setPlaceHolders();
     }
 
+    /**
+     * Draws the navbox elements on the window.
+     * 
+     * @param window: The window to draw the navbox elements on.
+    */
     void draw(sf::RenderWindow &window)
     {
         window.draw(backgroundBox);
@@ -295,6 +301,7 @@ public:
 
         updatePinSprites();
 
+        // Should only draw the pins if the fields are filled.
         if (originFieldFilled)
         {
             window.draw(originPin.getSprite());
@@ -305,16 +312,19 @@ public:
         }
     }
 
+    // Returns the selected algorithm 
     AlgoName getSelectedAlgorithm()
     {
         return selectedAlgorithm;
     }
 
+    // Checks if the form is valid for submission by ensuring both location fields are filled.
     bool isValidSubmission()
     {
         return (originFieldFilled && destinationFieldFilled);
     }
 
+    // Returns the animate checkbox value the user has selected
     bool getAnimate()
     {
         return animate;
@@ -372,6 +382,7 @@ private:
     // UI Functions ///
     ///////////////////
 
+    // Updates the pin sprites to match their tracked positions on the map.
     void updatePinSprites()
     {
         auto originPosition = originPin.getPixelPosition();
@@ -380,6 +391,7 @@ private:
         destinationPin.setSpritePosition({destinationPosition.x - viewport->left, destinationPosition.y - viewport->top});
     }
 
+    // Updates the origin pin's position
     void updateOriginPin(double offsetLongitude, double offsetLatitude)
     {
         auto pixelPosition = mapGeometry->toPixelVector({offsetLongitude, offsetLatitude});
@@ -389,6 +401,7 @@ private:
         this->offsetLonLatOrigin = {offsetLongitude, offsetLatitude};
     }
 
+    // Updates the destination pin's position
     void updateDestinationPin(double offsetLongitude, double offsetLatitude)
     {
         auto position = mapGeometry->toPixelVector({offsetLongitude, offsetLatitude});
@@ -398,42 +411,50 @@ private:
         this->offsetLonLatDestination = {offsetLongitude, offsetLatitude};
     }
 
+    // Places the origin text inside the origin input box
     void setOriginText(const double &globalLatitude, const double &globalLongitude)
     {
         originText.setString(std::to_string(globalLatitude) + ", " + std::to_string(globalLongitude));
         originFieldFilled = true;
     }
 
+    // Places the destination text inside the destination input box
     void setDestinationText(const double &globalLatitude, const double &globalLongitude)
     {
         destinationText.setString(std::to_string(globalLatitude) + ", " + std::to_string(globalLongitude));
         destinationFieldFilled = true;
     }
 
+
+    // Activates the origin field and makes the outline thicker to show that is has been selected
     void activateOriginField()
     {
         originInputBox.setOutlineThickness(2);
         originFieldSelected = true;
     }
 
+    // Activates the destination field and makes the outline thicker to show that is has been selected
     void activateDestinationField()
     {
         destinationInputBox.setOutlineThickness(2);
         destinationFieldSelected = true;
     }
 
+    // Deactivates the destination field and makes the outline thinner to show that is has been deselected
     void deactivateDestinationField()
     {
         destinationInputBox.setOutlineThickness(1);
         destinationFieldSelected = false;
     }
 
+    // Deactivates the origin field and makes the outline thinner to show that is has been deselected
     void deactivateOriginField()
     {
         originInputBox.setOutlineThickness(1);
         originFieldSelected = false;
     }
 
+    // Sets the placeholder text for the input fields
     void setPlaceHolders()
     {
         if (originFieldFilled && destinationFieldFilled)
@@ -507,7 +528,7 @@ private:
         backgroundBox.setFillColor(sf::Color(255, 255, 255, 220));
         backgroundBox.setOutlineColor(sf::Color(255, 165, 0, 200));
         backgroundBox.setOutlineThickness(-3);
-        backgroundBox.setPosition(0, window->getSize().x - height);
+        backgroundBox.setPosition(0, window->getSize().y - height);
     }
 
     void initInputBoxes(float height)
@@ -516,10 +537,10 @@ private:
         originLabel.setCharacterSize(15);
         originLabel.setFillColor(sf::Color::Black);
         originLabel.setString("A:");
-        originLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 15);
+        originLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().y - height + 15);
         originInputBox.setSize(sf::Vector2f(backgroundBox.getSize().x - 50, 20));
         originInputBox.setFillColor(sf::Color::White);
-        originInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().x - height + 15);
+        originInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().y - height + 15);
         originInputBox.setOutlineColor(sf::Color(128, 128, 128));
         originInputBox.setOutlineThickness(1);
 
@@ -527,10 +548,10 @@ private:
         destinationLabel.setCharacterSize(15);
         destinationLabel.setFillColor(sf::Color::Black);
         destinationLabel.setString("B: ");
-        destinationLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 45);
+        destinationLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().y - height + 45);
         destinationInputBox.setSize(sf::Vector2f(backgroundBox.getSize().x - 50, 20));
         destinationInputBox.setFillColor(sf::Color::White);
-        destinationInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().x - height + 45);
+        destinationInputBox.setPosition(backgroundBox.getPosition().x + 30, window->getSize().y - height + 45);
         destinationInputBox.setOutlineColor(sf::Color(128, 128, 128));
         destinationInputBox.setOutlineThickness(1);
     }
@@ -541,34 +562,34 @@ private:
         dijkstraCheckBoxLabel.setCharacterSize(15);
         dijkstraCheckBoxLabel.setFillColor(sf::Color::Black);
         dijkstraCheckBoxLabel.setString("Dijkstra:");
-        dijkstraCheckBoxLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 70);
+        dijkstraCheckBoxLabel.setPosition(backgroundBox.getPosition().x + 10, window->getSize().y - height + 70);
         dijkstraCheckBox.setSize(sf::Vector2f(10, 10));
         dijkstraCheckBox.setFillColor(sf::Color::White);
         dijkstraCheckBox.setOutlineColor(sf::Color(128, 128, 128));
         dijkstraCheckBox.setOutlineThickness(1);
-        dijkstraCheckBox.setPosition(dijkstraCheckBoxLabel.getPosition().x + dijkstraCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 75);
+        dijkstraCheckBox.setPosition(dijkstraCheckBoxLabel.getPosition().x + dijkstraCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().y - height + 75);
 
         aStarCheckBoxLabel.setFont(font);
         aStarCheckBoxLabel.setCharacterSize(15);
         aStarCheckBoxLabel.setFillColor(sf::Color::Black);
         aStarCheckBoxLabel.setString("A*:");
-        aStarCheckBoxLabel.setPosition(dijkstraCheckBox.getPosition().x + dijkstraCheckBox.getSize().x + 10, window->getSize().x - height + 70);
+        aStarCheckBoxLabel.setPosition(dijkstraCheckBox.getPosition().x + dijkstraCheckBox.getSize().x + 10, window->getSize().y - height + 70);
         aStarCheckBox.setSize(sf::Vector2f(10, 10));
         aStarCheckBox.setFillColor(sf::Color::White);
         aStarCheckBox.setOutlineColor(sf::Color(128, 128, 128));
         aStarCheckBox.setOutlineThickness(1);
-        aStarCheckBox.setPosition(aStarCheckBoxLabel.getPosition().x + aStarCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 75);
+        aStarCheckBox.setPosition(aStarCheckBoxLabel.getPosition().x + aStarCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().y - height + 75);
 
         animationCheckBoxLabel.setFont(font);
         animationCheckBoxLabel.setCharacterSize(15);
         animationCheckBoxLabel.setFillColor(sf::Color::Black);
         animationCheckBoxLabel.setString("Animate:");
-        animationCheckBoxLabel.setPosition(dijkstraCheckBoxLabel.getPosition().x, window->getSize().x - height + 90);
+        animationCheckBoxLabel.setPosition(dijkstraCheckBoxLabel.getPosition().x, window->getSize().y - height + 90);
         animationCheckBox.setSize(sf::Vector2f(10, 10));
         animationCheckBox.setFillColor(sf::Color::White);
         animationCheckBox.setOutlineColor(sf::Color(128, 128, 128));
         animationCheckBox.setOutlineThickness(1);
-        animationCheckBox.setPosition(animationCheckBoxLabel.getPosition().x + animationCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().x - height + 95);
+        animationCheckBox.setPosition(animationCheckBoxLabel.getPosition().x + animationCheckBoxLabel.getGlobalBounds().width + 5, window->getSize().y - height + 95);
     }
 
     void initTextElements(float height)
@@ -576,11 +597,11 @@ private:
         originText.setFont(font);
         originText.setCharacterSize(13);
         originText.setFillColor(sf::Color::Black);
-        originText.setPosition(originInputBox.getPosition().x + 5, window->getSize().x - height + 17);
+        originText.setPosition(originInputBox.getPosition().x + 5, window->getSize().y - height + 17);
         destinationText.setFont(font);
         destinationText.setCharacterSize(13);
         destinationText.setFillColor(sf::Color::Black);
-        destinationText.setPosition(destinationInputBox.getPosition().x + 5, window->getSize().x - height + 47);
+        destinationText.setPosition(destinationInputBox.getPosition().x + 5, window->getSize().y - height + 47);
     }
 
     void initSubmitButton(float height, float width)
@@ -589,13 +610,13 @@ private:
         submitButton.setFillColor(sf::Color::Magenta);
         submitButton.setOutlineColor(sf::Color::Black);
         submitButton.setOutlineThickness(1);
-        submitButton.setPosition(width - 65, window->getSize().x - height + 70);
+        submitButton.setPosition(width - 65, window->getSize().y - height + 70);
 
         submitButtonLabel.setFont(font);
         submitButtonLabel.setCharacterSize(15);
         submitButtonLabel.setFillColor(sf::Color::Black);
         submitButtonLabel.setString("Go");
-        submitButtonLabel.setPosition(width - 52, window->getSize().x - height + 70);
+        submitButtonLabel.setPosition(width - 52, window->getSize().y - height + 70);
     }
 
     void initSubmitResultText()
@@ -603,6 +624,6 @@ private:
         submissionResultText.setFont(font);
         submissionResultText.setCharacterSize(13);
         submissionResultText.setFillColor(sf::Color::Black);
-        submissionResultText.setPosition(backgroundBox.getPosition().x + 10, window->getSize().x - height + 95);
+        submissionResultText.setPosition(backgroundBox.getPosition().x + 10, window->getSize().y - height + 95);
     }
 };

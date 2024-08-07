@@ -20,7 +20,7 @@
 class App
 {
 public:
-    App() : window(sf::VideoMode(800, 800), "NaviGator")
+    App() : window(sf::VideoMode(1000, 1000), "GatorMaps")
     {
         using Degree = double;
         Degree mapTop = *config["map"]["bbox_top"].value<double>();
@@ -28,7 +28,6 @@ public:
         Degree mapBottom = *config["map"]["bbox_bottom"].value<double>();
         Degree mapRight = *config["map"]["bbox_right"].value<double>();
         Degree viewportW = *config["viewport"]["default_w"].value<double>();
-        Degree viewportH = *config["viewport"]["default_h"].value<double>();
         Degree chunkSize = *config["map"]["chunk_size"].value<double>();
 
         // connect the custom event queue to listen to the navbox event(s)
@@ -44,7 +43,7 @@ public:
             .detach();
 
         mapGeometry = MapGeometry(
-            800 / viewportW,                                           // pixels per degree
+            1000 / viewportW,                                          // pixels per degree
             {mapTop, mapLeft, mapRight - mapLeft, mapTop - mapBottom}, // map geo area
             chunkSize                                                  // chunk geo size
         );
@@ -52,8 +51,8 @@ public:
         route.mapGeometry = &mapGeometry;
 
         sf::Vector2<double> viewportGeoSize = {
-            *config["viewport"]["default_w"].value<double>(),
-            *config["viewport"]["default_h"].value<double>()};
+            viewportW,
+            viewportW * (16.0f / 9)};
 
         viewport = Viewport(mapGeometry.toPixelVector(viewportGeoSize), &mapGeometry);
 
@@ -103,6 +102,7 @@ private:
                 navBox.handleKeyPress(event);
             }
 
+            // Handles clicks on the navbox elements
             if (event.type == sf::Event::MouseButtonPressed)
             {
                 int x = event.mouseButton.x;
@@ -161,13 +161,16 @@ private:
             }
             else if (event.type == ps::EventType::NodeTouched)
             {
+                // Animates a point on the map when a node is touched
                 auto lonLat = std::get<ps::Data::Vector2>(event.data);
                 animationPoints.push({mapGeometry.getChunkRowCol(lonLat.y, lonLat.x), sf::Vector2<double>(lonLat.x, lonLat.y)});
             }
             else if (event.type == ps::EventType::NavBoxFormChanged)
             {
+                // Clear the route and remove all dots from the map when the navbox form changes 
+                // Because the route no longer exists.
                 route.path.clear();
-                for (ChunkSprite * sprite : chunkSpriteLoader.getAllLoaded())
+                for (ChunkSprite *sprite : chunkSpriteLoader.getAllLoaded())
                 {
                     if (sprite->hasDots)
                         chunkSpriteLoader.unCache(sprite->row, sprite->col);
@@ -178,6 +181,10 @@ private:
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
+                // In the case the a route has been found, 
+                // The route's edges will be displayed on the map.
+                // And a message of confirmation will be displayed.
+
                 auto data = std::get<ps::Data::CompleteRoute>(event.data);
 
                 PointPath routePath;
@@ -203,14 +210,14 @@ private:
 
                 route.path = routePath;
 
-                double totalDistanceKM = totalDistance / 1000.0;
-                string distanceString = to_string(totalDistanceKM);
-                distanceString = distanceString.substr(0, distanceString.find(".") + 2);
-
                 toaster.removeToast("finding_route");
                 std::cout << data.edgeIndices.size() << "edges " << std::endl;
 
                 if (totalDistance > 3000) {
+                    // Convert total distance to kilometers before display.
+                    double totalDistanceKM = totalDistance / 1000.0;
+                    string distanceString = to_string(totalDistanceKM);
+                    distanceString = distanceString.substr(0, distanceString.find(".") + 2);
                     toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + distanceString + " Km.", "route_found", sf::seconds(5));
                 }
                 else {
@@ -235,7 +242,7 @@ private:
         window.clear(sf::Color(245, 245, 245, 255));
 
         int n = animationPoints.size();
-        for (int i = 0; i < n && i < 450; ++i)
+        for (int i = 0; i < n && i < 1500; ++i)
         {
             auto [chunkCoord, offsetGeoCoord] = animationPoints.front();
             animationPoints.pop();

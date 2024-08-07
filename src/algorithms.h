@@ -48,6 +48,7 @@ public:
                 GraphEdge edge = graph.getEdge(edgeIndex);
                 GraphNodeIndex targetNodeIndex = edge.to;
 
+                // In the case of an animation we want to emit an event to update the UI.
                 if (animate)
                 {
                     ps::Event event(ps::EventType::NodeTouched);
@@ -155,7 +156,8 @@ public:
 
             for (auto edgeIndex : currentNode.outEdges)
             {
-
+                
+                // In the case of an animation we want to emit an event to update the UI.
                 if (animate)
                 {
                     ps::Event event(ps::EventType::NodeTouched);
