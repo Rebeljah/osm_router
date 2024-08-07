@@ -167,6 +167,10 @@ private:
         // window.clear(sf::Color(247, 246, 246, 255));
         window.clear(sf::Color(245, 245, 245, 255));
 
+        // render up to x animation dots onto loaded chunk sprite
+        // if a chunk sprite is not yet loaded, requue the point so that
+        // it can be rendered later when the user pans that map region
+        // into view
         int n = animationPoints.size();
         for (int i = 0; i < n && i < 1500; ++i)
         {
@@ -179,9 +183,7 @@ private:
                 animationPoints.push({chunkCoord, offsetGeoCoord});
                 continue;
             }
-
             ChunkSprite *sprite = *chunkSpriteLoader.get(chunkRow, chunkCol);
-
             sprite->renderDot(offsetGeoCoord, &mapGeometry);
         }
 
@@ -217,7 +219,6 @@ private:
         }
 
         route.render(window, (Rectangle<double>)viewport);
-
         navBox.draw(window);
         toaster.render(window);
         window.display();
@@ -225,6 +226,7 @@ private:
 
     void startFindingRoute(ps::Event event)
     {
+        // The graph is still loading, so notify the user
         if (!mapGraph.isDataLoaded())
         {
             toaster.spawnToast(window.getSize().x / 2, "Loading data, please wait...", "loading_data", sf::seconds(2.25));
@@ -236,6 +238,7 @@ private:
         sf::Vector2<double> destination = navBoxForm.destination;
         AlgoName algoName = (AlgoName)navBoxForm.algoName;
 
+        // start the selected pathfinding algo in another thread
         toaster.spawnToast(window.getSize().x / 2, "Finding a route...", "finding_route");
         std::thread([this, origin, destination, algoName]()
                     {
@@ -263,6 +266,7 @@ private:
         // Total distance of the route in meters
         int totalDistance = 0;
 
+        // load the point paths from all of the edges in the completed route
         for (GraphEdgeIndex idx : data.edgeIndices)
         {
             GraphEdge graphEdge = mapGraph.getEdge(idx);
@@ -271,6 +275,9 @@ private:
 
             sql::Edge edge = storage.get<sql::Edge>(graphEdge.sqlID);
             PointPath edgePath(edge.pathOffsetPoints);
+
+            // if the edge has been duplicated in reverse, unreverse the path so that
+            // it forms a continous point path from origin to destination
             if (!graphEdge.isPrimary)
             {
                 edgePath.reverse();
@@ -283,15 +290,14 @@ private:
         toaster.removeToast("finding_route");
         std::cout << data.edgeIndices.size() << "edges " << std::endl;
 
-        if (totalDistance > 3000)
+        if (totalDistance > 3000) // Convert total distance to kilometers before display.
         {
-            // Convert total distance to kilometers before display.
             double totalDistanceKM = totalDistance / 1000.0;
             string distanceString = to_string(totalDistanceKM);
             distanceString = distanceString.substr(0, distanceString.find(".") + 2);
             toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + distanceString + " Km.", "route_found", sf::seconds(5));
         }
-        else
+        else // distance is small enough to display in meters
         {
             toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + to_string(totalDistance) + " m.", "route_found", sf::seconds(5));
         }
