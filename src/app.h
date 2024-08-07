@@ -136,95 +136,19 @@ private:
             }
             else if (event.type == ps::EventType::NavBoxSubmitted)
             {
-                if (!mapGraph.isDataLoaded())
-                {
-                    toaster.spawnToast(window.getSize().x / 2, "Loading data, please wait...", "loading_data", sf::seconds(2.25));
-                    continue;
-                }
-
-                auto navBoxForm = std::get<ps::Data::NavBoxForm>(event.data);
-                sf::Vector2<double> origin = navBoxForm.origin;
-                sf::Vector2<double> destination = navBoxForm.destination;
-                AlgoName algoName = (AlgoName)navBoxForm.algoName;
-
-                toaster.spawnToast(window.getSize().x / 2, "Finding a route...", "finding_route");
-                std::thread([this, origin, destination, algoName]()
-                            {
-                        auto startTime = std::chrono::high_resolution_clock().now();
-                        vector<GraphNodeIndex> path = algorithms.findShortestPath(origin, destination, algoName, mapGraph, mapGeometry, window, viewport, navBox);
-                        auto endTime = std::chrono::high_resolution_clock().now();
-                        // push an event with the completed route data
-                        ps::Event event(ps::EventType::RouteCompleted);
-                        event.data = ps::Data::CompleteRoute(path, std::chrono::duration(endTime - startTime));
-                        this->eventQueue.onEvent(event); })
-                    .detach();
+                startFindingRoute(event);
             }
             else if (event.type == ps::EventType::NodeTouched)
             {
-                // Animates a point on the map when a node is touched
-                auto lonLat = std::get<ps::Data::Vector2>(event.data);
-                animationPoints.push({mapGeometry.getChunkRowCol(lonLat.y, lonLat.x), sf::Vector2<double>(lonLat.x, lonLat.y)});
+                enqueueAnimationPoint(event);
             }
             else if (event.type == ps::EventType::NavBoxFormChanged)
             {
-                // Clear the route and remove all dots from the map when the navbox form changes
-                // Because the route no longer exists.
-                route.path.clear();
-                for (ChunkSprite *sprite : chunkSpriteLoader.getAllLoaded())
-                {
-                    if (sprite->hasDots)
-                        chunkSpriteLoader.unCache(sprite->row, sprite->col);
-                }
-
-                while (animationPoints.size())
-                    animationPoints.pop();
+                clearAnimationPoints(event);
             }
             else if (event.type == ps::EventType::RouteCompleted)
             {
-                // In the case the a route has been found,
-                // The route's edges will be displayed on the map.
-                // And a message of confirmation will be displayed.
-
-                auto data = std::get<ps::Data::CompleteRoute>(event.data);
-
-                PointPath routePath;
-                auto storage = sql::loadStorage("./db/map.db");
-
-                // Total distance of the route in meters
-                int totalDistance = 0;
-
-                for (GraphEdgeIndex idx : data.edgeIndices)
-                {
-                    GraphEdge graphEdge = mapGraph.getEdge(idx);
-
-                    totalDistance += graphEdge.weight;
-
-                    sql::Edge edge = storage.get<sql::Edge>(graphEdge.sqlID);
-                    PointPath edgePath(edge.pathOffsetPoints);
-                    if (!graphEdge.isPrimary)
-                    {
-                        edgePath.reverse();
-                    }
-                    routePath.extend(edgePath);
-                }
-
-                route.path = routePath;
-
-                toaster.removeToast("finding_route");
-                std::cout << data.edgeIndices.size() << "edges " << std::endl;
-
-                if (totalDistance > 3000)
-                {
-                    // Convert total distance to kilometers before display.
-                    double totalDistanceKM = totalDistance / 1000.0;
-                    string distanceString = to_string(totalDistanceKM);
-                    distanceString = distanceString.substr(0, distanceString.find(".") + 2);
-                    toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + distanceString + " Km.", "route_found", sf::seconds(5));
-                }
-                else
-                {
-                    toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + to_string(totalDistance) + " m.", "route_found", sf::seconds(5));
-                }
+                onRouteCompleted(event);
             }
         }
     }
@@ -297,6 +221,103 @@ private:
         navBox.draw(window);
         toaster.render(window);
         window.display();
+    }
+
+    void startFindingRoute(ps::Event event)
+    {
+        if (!mapGraph.isDataLoaded())
+        {
+            toaster.spawnToast(window.getSize().x / 2, "Loading data, please wait...", "loading_data", sf::seconds(2.25));
+            return;
+        }
+
+        auto navBoxForm = std::get<ps::Data::NavBoxForm>(event.data);
+        sf::Vector2<double> origin = navBoxForm.origin;
+        sf::Vector2<double> destination = navBoxForm.destination;
+        AlgoName algoName = (AlgoName)navBoxForm.algoName;
+
+        toaster.spawnToast(window.getSize().x / 2, "Finding a route...", "finding_route");
+        std::thread([this, origin, destination, algoName]()
+                    {
+                        auto startTime = std::chrono::high_resolution_clock().now();
+                        vector<GraphNodeIndex> path = algorithms.findShortestPath(origin, destination, algoName, mapGraph, mapGeometry, window, viewport, navBox);
+                        auto endTime = std::chrono::high_resolution_clock().now();
+                        // push an event with the completed route data
+                        ps::Event event(ps::EventType::RouteCompleted);
+                        event.data = ps::Data::CompleteRoute(path, std::chrono::duration(endTime - startTime));
+                        this->eventQueue.onEvent(event); })
+            .detach();
+    }
+
+    void onRouteCompleted(ps::Event event)
+    {
+        // In the case the a route has been found,
+        // The route's edges will be displayed on the map.
+        // And a message of confirmation will be displayed.
+
+        auto data = std::get<ps::Data::CompleteRoute>(event.data);
+
+        PointPath routePath;
+        auto storage = sql::loadStorage("./db/map.db");
+
+        // Total distance of the route in meters
+        int totalDistance = 0;
+
+        for (GraphEdgeIndex idx : data.edgeIndices)
+        {
+            GraphEdge graphEdge = mapGraph.getEdge(idx);
+
+            totalDistance += graphEdge.weight;
+
+            sql::Edge edge = storage.get<sql::Edge>(graphEdge.sqlID);
+            PointPath edgePath(edge.pathOffsetPoints);
+            if (!graphEdge.isPrimary)
+            {
+                edgePath.reverse();
+            }
+            routePath.extend(edgePath);
+        }
+
+        route.path = routePath;
+
+        toaster.removeToast("finding_route");
+        std::cout << data.edgeIndices.size() << "edges " << std::endl;
+
+        if (totalDistance > 3000)
+        {
+            // Convert total distance to kilometers before display.
+            double totalDistanceKM = totalDistance / 1000.0;
+            string distanceString = to_string(totalDistanceKM);
+            distanceString = distanceString.substr(0, distanceString.find(".") + 2);
+            toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + distanceString + " Km.", "route_found", sf::seconds(5));
+        }
+        else
+        {
+            toaster.spawnToast(window.getSize().x / 2, "Route found! Have a nice trip! (" + to_string(data.runTime.count()) + ") seconds. Distance: " + to_string(totalDistance) + " m.", "route_found", sf::seconds(5));
+        }
+    }
+
+    void clearAnimationPoints(ps::Event event)
+    {
+        // Clear the route and remove all dots from the map when the navbox form changes
+        // Because the route no longer exists.
+        route.path.clear();
+        for (ChunkSprite *sprite : chunkSpriteLoader.getAllLoaded())
+        {
+            if (sprite->hasDots)
+                chunkSpriteLoader.unCache(sprite->row, sprite->col);
+        }
+
+        // clear out any queued points representing touched nodes
+        while (animationPoints.size())
+            animationPoints.pop();
+    }
+
+    void enqueueAnimationPoint(ps::Event event)
+    {
+        // Animates a point on the map when a node is touched
+        auto lonLat = std::get<ps::Data::Vector2>(event.data);
+        animationPoints.push({mapGeometry.getChunkRowCol(lonLat.y, lonLat.x), sf::Vector2<double>(lonLat.x, lonLat.y)});
     }
 
     toml::v3::ex::parse_result config = toml::parse_file("./config/config.toml");
