@@ -1,5 +1,5 @@
 ### Demo Video
-[![View on YouTube](http://i.ytimg.com/vi/r-YQiXv5MA8%26amp;sa%3DD%26amp;source%3Deditors%26amp;ust%3D1723237964286127%26amp;usg%3DAOvVaw3sYSb5H7h1zUiBbR1pYu-i/hqdefault.jpg)](https://www.youtube.com/watch?v=r-YQiXv5MA8%26amp;sa%3DD%26amp;source%3Deditors%26amp;ust%3D1723237964286127%26amp;usg%3DAOvVaw3sYSb5H7h1zUiBbR1pYu-i)
+https://youtu.be/r-YQiXv5MA8
 ### Proposal Gdoc:
 - https://docs.google.com/document/d/1JEEAZYAosy_jTsWOz1q2IIQ6D6_zGJDuMbgMNqxPP5w/edit?usp=sharing
 ### Links to download CSV data for building the database:
